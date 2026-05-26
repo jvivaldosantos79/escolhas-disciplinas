@@ -6,6 +6,12 @@ const ADMIN_EMAIL = "mat_tic_josesantos@c-guadalupe.com";
 const MSAL_CLIENT_ID = "585048a3-1008-413b-af8a-cabb2ca780ca";
 const MSAL_TENANT = "57b6e55f-5343-418f-b407-7ccfac24fab0";
 const MSAL_REDIRECT_URI = window.location.origin + window.location.pathname;
+const MSAL_SCRIPT_URLS = [
+  "https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js",
+  "https://alcdn.msauth.net/browser/2.14.2/js/msal-browser.min.js",
+  "https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/dist/msal-browser.min.js",
+  "https://unpkg.com/@azure/msal-browser@2.38.3/dist/msal-browser.min.js"
+];
 
 const courseRules = {
   CienciasTecnologias: {
@@ -83,6 +89,7 @@ let students = [];
 let currentStudent = null;
 let msalClient = null;
 let signedInAccount = null;
+let authInitPromise = null;
 
 const loginRequest = {
   scopes: ["openid", "profile", "email"]
@@ -133,12 +140,15 @@ const choiceRepository = {
 };
 
 signInButton.addEventListener("click", async () => {
+  await ensureAuthReady();
+
   if (!isAuthConfigured()) {
     showAuthWarning("A autenticação O365 ainda não está configurada. Preenche MSAL_CLIENT_ID em app.js.");
     return;
   }
 
   try {
+    authStatus.textContent = "A abrir autenticação O365...";
     await msalClient.loginRedirect(loginRequest);
   } catch (error) {
     showAuthWarning(`Não foi possível iniciar sessão: ${error.message}`);
@@ -508,8 +518,19 @@ function showLoginError(message) {
 }
 
 async function initAuth() {
-  if (!isAuthConfigured()) {
+  authStatus.textContent = "A preparar autenticação O365...";
+  signInButton.disabled = true;
+
+  if (!isClientIdConfigured()) {
     showAuthWarning("Autenticação O365 por configurar: regista a app no Microsoft Entra e substitui MSAL_CLIENT_ID em app.js.");
+    updateAuthUi();
+    return;
+  }
+
+  const msalLoaded = await loadMsalLibrary();
+
+  if (!msalLoaded) {
+    showAuthWarning("Não foi possível carregar a biblioteca de autenticação Microsoft. Confirma a ligação à internet ou tenta novamente.");
     updateAuthUi();
     return;
   }
@@ -548,8 +569,60 @@ async function initAuth() {
   updateAuthUi();
 }
 
+async function ensureAuthReady() {
+  if (!authInitPromise) {
+    authInitPromise = initAuth();
+  }
+
+  await authInitPromise;
+}
+
+async function loadMsalLibrary() {
+  if (window.msal) {
+    return true;
+  }
+
+  for (const url of MSAL_SCRIPT_URLS) {
+    const loaded = await loadScriptWithTimeout(url, 7000);
+
+    if (loaded && window.msal) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function loadScriptWithTimeout(url, timeoutMs) {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    const timer = window.setTimeout(() => {
+      script.remove();
+      resolve(false);
+    }, timeoutMs);
+
+    script.src = url;
+    script.async = true;
+    script.onload = () => {
+      window.clearTimeout(timer);
+      resolve(true);
+    };
+    script.onerror = () => {
+      window.clearTimeout(timer);
+      script.remove();
+      resolve(false);
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
+function isClientIdConfigured() {
+  return MSAL_CLIENT_ID && !MSAL_CLIENT_ID.includes("COLOCA_AQUI");
+}
+
 function isAuthConfigured() {
-  return window.msal && MSAL_CLIENT_ID && !MSAL_CLIENT_ID.includes("COLOCA_AQUI");
+  return window.msal && isClientIdConfigured() && Boolean(msalClient);
 }
 
 function updateAuthUi() {
@@ -567,6 +640,7 @@ function updateAuthUi() {
   adminNav.classList.toggle("hidden", !isAdmin);
   signInButton.classList.toggle("hidden", isSignedIn);
   signOutButton.classList.toggle("hidden", !isSignedIn);
+  signInButton.disabled = false;
 
   if (isSignedIn) {
     authStatus.textContent = `Sessão iniciada como ${getSignedInEmail()}.`;
@@ -669,5 +743,5 @@ function escapeCsvValue(value) {
   return text;
 }
 
-initAuth();
+authInitPromise = initAuth();
 updateCsvOutput();
