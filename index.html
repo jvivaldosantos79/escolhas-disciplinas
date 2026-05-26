@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolhas de Disciplinas do 12.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260526-header-session-2">
+    <link rel="stylesheet" href="style.css?v=20260526-supabase-db">
   </head>
   <body>
     <header class="topbar">
@@ -114,7 +114,7 @@
           </article>
           <article>
             <h3>Alternativa Supabase</h3>
-            <p>Cria as tabelas <code>alunos</code> e <code>escolhas</code>, ativa autenticação se necessário e troca apenas a camada <code>studentRepository</code> e <code>choiceRepository</code>.</p>
+            <p>A aplicação está preparada para ler a tabela <code>alunos</code> e guardar submissões na tabela <code>escolhas</code>.</p>
           </article>
           <article>
             <h3>Autenticação O365</h3>
@@ -131,7 +131,7 @@
           </div>
           <button id="clear-results" class="secondary danger" type="button">Limpar resultados</button>
         </div>
-        <p>Área disponível apenas para o administrador autenticado. As escolhas desta versão ficam guardadas no navegador, em <code>localStorage</code>. Para recolha centralizada, usa Google Forms/Sheets ou Supabase.</p>
+        <p>Área disponível apenas para o administrador autenticado. As escolhas são carregadas a partir da tabela <code>escolhas</code> no Supabase.</p>
         <div class="admin-actions">
           <button id="export-csv" type="button">Exportar CSV</button>
           <button id="download-csv" class="secondary" type="button">Descarregar ficheiro CSV</button>
@@ -154,6 +154,6 @@
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260526-header-session-2"></script>
+    <script src="app.js?v=20260526-supabase-db"></script>
   </body>
 </html>

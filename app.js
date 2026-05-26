@@ -1,11 +1,18 @@
 const DATA_SOURCE = "alunos.csv";
 const STORAGE_KEY = "escolhas12ano.resultados";
 const ADMIN_EMAIL = "mat_tic_josesantos@c-guadalupe.com";
+const SUPABASE_URL = "https://rygyxkcgvimvommdnuiw.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_RVB9XvY8C7qLzbxvGc7E-A_ch_FCYH6";
+const SUPABASE_MODULE_URLS = [
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm",
+  "https://esm.sh/@supabase/supabase-js@2"
+];
 
 // Preenche este valor no Azure/Microsoft Entra depois de registares a aplicação SPA.
 const MSAL_CLIENT_ID = "585048a3-1008-413b-af8a-cabb2ca780ca";
 const MSAL_TENANT = "57b6e55f-5343-418f-b407-7ccfac24fab0";
 const MSAL_REDIRECT_URI = window.location.origin + window.location.pathname;
+const HOME_URL = window.location.origin + window.location.pathname;
 const MSAL_SCRIPT_URLS = [
   "https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js",
   "https://alcdn.msauth.net/browser/2.14.2/js/msal-browser.min.js",
@@ -91,6 +98,8 @@ let currentStudent = null;
 let msalClient = null;
 let signedInAccount = null;
 let authInitPromise = null;
+let supabaseClient = null;
+let supabaseInitPromise = null;
 
 const loginRequest = {
   scopes: ["openid", "profile", "email"]
@@ -98,6 +107,20 @@ const loginRequest = {
 
 const studentRepository = {
   async getAll() {
+    const client = await ensureSupabaseReady();
+
+    if (client) {
+      const { data, error } = await client
+        .from("alunos")
+        .select("aluno_id,nome,turma,curso,email")
+        .order("turma", { ascending: true })
+        .order("nome", { ascending: true });
+
+      if (!error && data) {
+        return data.map(normalizeStudent);
+      }
+    }
+
     const response = await fetch(DATA_SOURCE);
 
     if (!response.ok) {
@@ -109,6 +132,22 @@ const studentRepository = {
   },
 
   async findById(studentId) {
+    const client = await ensureSupabaseReady();
+
+    if (client) {
+      const { data, error } = await client
+        .from("alunos")
+        .select("aluno_id,nome,turma,curso,email")
+        .eq("aluno_id", studentId)
+        .maybeSingle();
+
+      if (error) {
+        throw new Error("Não foi possível consultar a base de dados de alunos.");
+      }
+
+      return data ? normalizeStudent(data) : null;
+    }
+
     if (students.length === 0) {
       students = await this.getAll();
     }
@@ -118,12 +157,43 @@ const studentRepository = {
 };
 
 const choiceRepository = {
-  getAll() {
+  async getAll() {
+    const client = await ensureSupabaseReady();
+
+    if (client) {
+      const { data, error } = await client
+        .from("escolhas")
+        .select("*")
+        .order("submetido_em", { ascending: false });
+
+      if (error) {
+        throw new Error("Não foi possível carregar as escolhas guardadas.");
+      }
+
+      return data.map(mapChoiceFromDatabase);
+    }
+
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
   },
 
-  save(choice) {
-    const choices = this.getAll();
+  async save(choice) {
+    const client = await ensureSupabaseReady();
+
+    if (client) {
+      const { error } = await client.from("escolhas").insert(mapChoiceToDatabase(choice));
+
+      if (error && error.code === "23505") {
+        throw new Error("Este aluno já submeteu uma escolha. Contacta a administração para alterar a submissão.");
+      }
+
+      if (error) {
+        throw new Error(`Não foi possível guardar a escolha: ${error.message}`);
+      }
+
+      return;
+    }
+
+    const choices = await this.getAll();
     const existingIndex = choices.findIndex((item) => item.aluno_id === choice.aluno_id);
 
     if (existingIndex >= 0) {
@@ -135,7 +205,19 @@ const choiceRepository = {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(choices));
   },
 
-  clear() {
+  async clear() {
+    const client = await ensureSupabaseReady();
+
+    if (client) {
+      const { error } = await client.from("escolhas").delete().neq("aluno_id", "__nunca__");
+
+      if (error) {
+        throw new Error("Não foi possível limpar as escolhas na base de dados.");
+      }
+
+      return;
+    }
+
     localStorage.removeItem(STORAGE_KEY);
   }
 };
@@ -163,7 +245,7 @@ headerSignOutButton.addEventListener("click", async () => {
 
   await msalClient.logoutRedirect({
     account: signedInAccount,
-    postLogoutRedirectUri: MSAL_REDIRECT_URI
+    postLogoutRedirectUri: HOME_URL
   });
 });
 
@@ -217,7 +299,7 @@ choicesForm.addEventListener("change", () => {
   updateValidation();
 });
 
-choicesForm.addEventListener("submit", (event) => {
+choicesForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const priorities = getSelectedPriorities();
   const validation = validatePriorities(priorities, currentStudent.curso);
@@ -237,16 +319,24 @@ choicesForm.addEventListener("submit", (event) => {
     submetido_em: new Date().toISOString()
   };
 
-  choiceRepository.save(choice);
-  confirmation.classList.remove("hidden");
-  confirmation.textContent = `Escolha submetida com 3 prioridades diferentes. Linha de confirmação gerada na área de administração.`;
-  updateCsvOutput();
+  try {
+    submitChoiceButton.disabled = true;
+    await choiceRepository.save(choice);
+    confirmation.classList.remove("hidden");
+    confirmation.textContent = "Escolha submetida com 3 prioridades diferentes e guardada na base de dados.";
+    await updateCsvOutput();
+  } catch (error) {
+    validationMessage.textContent = error.message;
+    validationMessage.className = "validation invalid";
+  } finally {
+    updateValidation();
+  }
 });
 
 exportCsvButton.addEventListener("click", updateCsvOutput);
 
-downloadCsvButton.addEventListener("click", () => {
-  const csv = buildChoicesCsv(choiceRepository.getAll());
+downloadCsvButton.addEventListener("click", async () => {
+  const csv = buildChoicesCsv(await choiceRepository.getAll());
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
@@ -255,12 +345,16 @@ downloadCsvButton.addEventListener("click", () => {
   URL.revokeObjectURL(link.href);
 });
 
-clearResultsButton.addEventListener("click", () => {
-  const confirmed = window.confirm("Queres limpar os resultados guardados neste navegador?");
+clearResultsButton.addEventListener("click", async () => {
+  const confirmed = window.confirm("Queres limpar todos os resultados guardados na base de dados?");
 
   if (confirmed) {
-    choiceRepository.clear();
-    updateCsvOutput();
+    try {
+      await choiceRepository.clear();
+      await updateCsvOutput();
+    } catch (error) {
+      csvOutput.value = error.message;
+    }
   }
 });
 
@@ -518,6 +612,96 @@ function showLoginError(message) {
   studentArea.classList.add("hidden");
 }
 
+async function ensureSupabaseReady() {
+  if (!supabaseInitPromise) {
+    supabaseInitPromise = initSupabase();
+  }
+
+  return supabaseInitPromise;
+}
+
+async function initSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return null;
+  }
+
+  const supabaseModule = await loadSupabaseModule();
+
+  if (!supabaseModule) {
+    return null;
+  }
+
+  supabaseClient = supabaseModule.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return supabaseClient;
+}
+
+async function loadSupabaseModule() {
+  for (const url of SUPABASE_MODULE_URLS) {
+    try {
+      return await import(url);
+    } catch (error) {
+      console.warn("Falha ao carregar Supabase:", url, error);
+    }
+  }
+
+  return null;
+}
+
+function normalizeStudent(student) {
+  return {
+    aluno_id: String(student.aluno_id || ""),
+    nome: student.nome || "",
+    turma: student.turma || "",
+    curso: student.curso || "",
+    email: student.email || ""
+  };
+}
+
+function mapChoiceToDatabase(choice) {
+  const prioritySubjects = getPrioritySubjectsForExport(choice);
+
+  return {
+    aluno_id: String(choice.aluno_id),
+    nome: choice.nome,
+    turma: choice.turma,
+    curso: choice.curso,
+    email_autenticado: choice.autenticado_com,
+    prioridade_1_disciplina_1: prioritySubjects[0],
+    prioridade_1_disciplina_2: prioritySubjects[1],
+    prioridade_2_disciplina_1: prioritySubjects[2],
+    prioridade_2_disciplina_2: prioritySubjects[3],
+    prioridade_3_disciplina_1: prioritySubjects[4],
+    prioridade_3_disciplina_2: prioritySubjects[5],
+    submetido_em: choice.submetido_em,
+    estado: "submetida"
+  };
+}
+
+function mapChoiceFromDatabase(row) {
+  return {
+    aluno_id: row.aluno_id,
+    nome: row.nome,
+    turma: row.turma,
+    curso: row.curso,
+    autenticado_com: row.email_autenticado,
+    prioridades: [
+      {
+        priority: 1,
+        subjects: [row.prioridade_1_disciplina_1, row.prioridade_1_disciplina_2]
+      },
+      {
+        priority: 2,
+        subjects: [row.prioridade_2_disciplina_1, row.prioridade_2_disciplina_2]
+      },
+      {
+        priority: 3,
+        subjects: [row.prioridade_3_disciplina_1, row.prioridade_3_disciplina_2]
+      }
+    ],
+    submetido_em: row.submetido_em
+  };
+}
+
 async function initAuth() {
   signInButton.disabled = true;
 
@@ -643,7 +827,11 @@ function updateAuthUi() {
   signInButton.disabled = false;
 
   if (isSignedIn) {
-    headerAuthEmail.textContent = `Sessão iniciada como ${getSignedInEmail()}`;
+    headerAuthEmail.textContent = `Sessão iniciada como ${getSignedInDisplayName()}`;
+
+    if (isAdmin) {
+      updateCsvOutput();
+    }
   } else {
     headerAuthEmail.textContent = "";
     studentArea.classList.add("hidden");
@@ -668,6 +856,18 @@ function getSignedInEmail() {
   ).toLowerCase();
 }
 
+function getSignedInDisplayName() {
+  if (!signedInAccount) {
+    return "";
+  }
+
+  return (
+    signedInAccount.name ||
+    signedInAccount.idTokenClaims?.name ||
+    getSignedInEmail()
+  );
+}
+
 function studentMatchesSignedInAccount(student) {
   if (!student.email) {
     return true;
@@ -676,9 +876,13 @@ function studentMatchesSignedInAccount(student) {
   return student.email.toLowerCase() === getSignedInEmail();
 }
 
-function updateCsvOutput() {
-  const csv = buildChoicesCsv(choiceRepository.getAll());
-  csvOutput.value = csv || "Sem resultados submetidos.";
+async function updateCsvOutput() {
+  try {
+    const csv = buildChoicesCsv(await choiceRepository.getAll());
+    csvOutput.value = csv || "Sem resultados submetidos.";
+  } catch (error) {
+    csvOutput.value = error.message;
+  }
 }
 
 function buildChoicesCsv(choices) {
@@ -744,4 +948,3 @@ function escapeCsvValue(value) {
 }
 
 authInitPromise = initAuth();
-updateCsvOutput();
