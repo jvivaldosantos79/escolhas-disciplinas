@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolhas de Disciplinas do 12.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260526-auth">
+    <link rel="stylesheet" href="style.css?v=20260526-header-session">
   </head>
   <body>
     <header class="topbar">
@@ -19,6 +19,10 @@
         <a href="#entrada">Aluno</a>
         <a id="admin-nav" class="hidden" href="#admin">Administração</a>
       </nav>
+      <div id="header-session" class="header-session hidden" aria-live="polite">
+        <span id="header-auth-email"></span>
+        <button id="header-sign-out" class="secondary" type="button">Terminar sessão</button>
+      </div>
     </header>
 
     <main>
@@ -27,12 +31,10 @@
           <p class="eyebrow">Acesso O365</p>
           <h2 id="titulo-autenticacao">Autenticação</h2>
           <p>Entra com a conta Microsoft 365 do Colégio Guadalupe para aceder à área do aluno.</p>
-          <p id="auth-status" class="message" role="status" aria-live="polite">Sessão não iniciada.</p>
           <p id="auth-warning" class="message warning hidden"></p>
         </div>
         <div class="auth-actions">
           <button id="sign-in" type="button">Entrar com O365</button>
-          <button id="sign-out" class="secondary hidden" type="button">Terminar sessão</button>
         </div>
       </section>
 
@@ -152,6 +154,6 @@
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260526-auth"></script>
+    <script src="app.js?v=20260526-header-session"></script>
   </body>
 </html>

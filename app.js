@@ -68,10 +68,11 @@ const courseRules = {
 const loginForm = document.querySelector("#login-form");
 const studentCodeInput = document.querySelector("#student-code");
 const loginMessage = document.querySelector("#login-message");
-const authStatus = document.querySelector("#auth-status");
 const authWarning = document.querySelector("#auth-warning");
 const signInButton = document.querySelector("#sign-in");
-const signOutButton = document.querySelector("#sign-out");
+const headerSession = document.querySelector("#header-session");
+const headerAuthEmail = document.querySelector("#header-auth-email");
+const headerSignOutButton = document.querySelector("#header-sign-out");
 const adminNav = document.querySelector("#admin-nav");
 const studentArea = document.querySelector("#student-area");
 const changeStudentButton = document.querySelector("#change-student");
@@ -155,7 +156,7 @@ signInButton.addEventListener("click", async () => {
   }
 });
 
-signOutButton.addEventListener("click", async () => {
+headerSignOutButton.addEventListener("click", async () => {
   if (!msalClient || !signedInAccount) {
     return;
   }
@@ -518,7 +519,6 @@ function showLoginError(message) {
 }
 
 async function initAuth() {
-  authStatus.textContent = "A preparar autenticação O365...";
   signInButton.disabled = true;
 
   if (!isClientIdConfigured()) {
@@ -629,6 +629,7 @@ function updateAuthUi() {
   const isSignedIn = Boolean(signedInAccount);
   const isAdmin = isSignedIn && getSignedInEmail() === ADMIN_EMAIL;
 
+  document.querySelector("#autenticacao").classList.toggle("hidden", isSignedIn);
   document.querySelectorAll(".requires-auth").forEach((element) => {
     element.classList.toggle("hidden", !isSignedIn);
   });
@@ -638,14 +639,13 @@ function updateAuthUi() {
   });
 
   adminNav.classList.toggle("hidden", !isAdmin);
-  signInButton.classList.toggle("hidden", isSignedIn);
-  signOutButton.classList.toggle("hidden", !isSignedIn);
+  headerSession.classList.toggle("hidden", !isSignedIn);
   signInButton.disabled = false;
 
   if (isSignedIn) {
-    authStatus.textContent = `Sessão iniciada como ${getSignedInEmail()}.`;
+    headerAuthEmail.textContent = `Sessão iniciada como ${getSignedInEmail()}`;
   } else {
-    authStatus.textContent = "Sessão não iniciada.";
+    headerAuthEmail.textContent = "";
     studentArea.classList.add("hidden");
   }
 }
