@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolhas de Disciplinas do 12.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260526-admin-filters">
+    <link rel="stylesheet" href="style.css?v=20260526-admin-search-layout">
   </head>
   <body>
     <header class="topbar">
@@ -121,39 +121,43 @@
         </div>
         <p>Área disponível apenas para o administrador autenticado. As escolhas são carregadas a partir da tabela <code>escolhas</code> no Supabase.</p>
         <form id="admin-filters" class="admin-filters">
-          <label>
-            Curso
-            <select id="filter-course">
-              <option value="">Todos</option>
-            </select>
-          </label>
-          <label>
-            Turma
-            <select id="filter-class">
-              <option value="">Todas</option>
-            </select>
-          </label>
-          <label>
-            Estado
-            <select id="filter-status">
-              <option value="">Todos</option>
-              <option value="submetida">Editáveis</option>
-              <option value="bloqueada">Bloqueadas</option>
-            </select>
-          </label>
-          <label>
-            Situação
-            <select id="filter-submission">
-              <option value="">Todos</option>
-              <option value="submitted">Preencheram</option>
-              <option value="pending">Por preencher</option>
-            </select>
-          </label>
-          <label>
-            Pesquisa
-            <input id="filter-search" type="search" placeholder="Nome, número ou email">
-          </label>
-          <button id="clear-filters" class="secondary" type="button">Limpar filtros</button>
+          <div class="filter-row filter-row-selects">
+            <label>
+              Curso
+              <select id="filter-course">
+                <option value="">Todos</option>
+              </select>
+            </label>
+            <label>
+              Turma
+              <select id="filter-class">
+                <option value="">Todas</option>
+              </select>
+            </label>
+            <label>
+              Estado
+              <select id="filter-status">
+                <option value="">Todos</option>
+                <option value="submetida">Editáveis</option>
+                <option value="bloqueada">Bloqueadas</option>
+              </select>
+            </label>
+            <label>
+              Situação
+              <select id="filter-submission">
+                <option value="">Todos</option>
+                <option value="submitted">Preencheram</option>
+                <option value="pending">Por preencher</option>
+              </select>
+            </label>
+          </div>
+          <div class="filter-row filter-row-search">
+            <label>
+              Pesquisa
+              <input id="filter-search" type="search" placeholder="Pesquisar por nome, número, email, turma ou curso">
+            </label>
+            <button id="clear-filters" class="secondary" type="button">Limpar filtros</button>
+          </div>
         </form>
         <div id="admin-dashboard" class="admin-dashboard"></div>
         <div class="admin-actions">
@@ -170,6 +174,6 @@
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260526-admin-filters"></script>
+    <script src="app.js?v=20260526-admin-search-layout"></script>
   </body>
 </html>

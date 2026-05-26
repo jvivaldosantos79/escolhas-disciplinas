@@ -442,11 +442,23 @@ dd {
 }
 
 .admin-filters {
-  align-items: end;
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
   margin: 1rem 0;
+}
+
+.filter-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.filter-row-selects {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.filter-row-search {
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .admin-filters label {
@@ -596,7 +608,9 @@ code {
   .subjects-list,
   .info-grid,
   .metric-grid,
-  .admin-filters {
+  .admin-filters,
+  .filter-row-selects,
+  .filter-row-search {
     grid-template-columns: 1fr;
   }
 }
