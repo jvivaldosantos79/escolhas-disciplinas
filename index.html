@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolhas de Disciplinas do 12.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260526-admin-search-layout">
+    <link rel="stylesheet" href="style.css?v=20260526-admin-tools-table">
   </head>
   <body>
     <header class="topbar">
@@ -115,11 +115,11 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">Administração</p>
-            <h2>Exportar resultados</h2>
+            <h2>Painel de resultados</h2>
           </div>
-          <button id="clear-results" class="secondary danger" type="button">Limpar resultados</button>
+          <button id="open-admin-tools" class="secondary" type="button">Exportação e manutenção</button>
         </div>
-        <p>Área disponível apenas para o administrador autenticado. As escolhas são carregadas a partir da tabela <code>escolhas</code> no Supabase.</p>
+        <p>Área disponível apenas para administradores autenticados.</p>
         <form id="admin-filters" class="admin-filters">
           <div class="filter-row filter-row-selects">
             <label>
@@ -162,10 +162,24 @@
         <div id="admin-dashboard" class="admin-dashboard"></div>
         <div class="admin-actions">
           <button id="refresh-results" class="secondary" type="button">Atualizar lista</button>
-          <button id="export-csv" type="button">Exportar CSV</button>
-          <button id="download-csv" class="secondary" type="button">Descarregar ficheiro CSV</button>
         </div>
         <div id="admin-results" class="admin-results"></div>
+      </section>
+
+      <section class="panel admin admin-only hidden" aria-labelledby="admin-tools-title" id="admin-tools">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Administração</p>
+            <h2 id="admin-tools-title">Exportação e manutenção</h2>
+          </div>
+          <button id="back-admin" class="secondary" type="button">Voltar à administração</button>
+        </div>
+        <p>Exporta os resultados filtrados ou executa operações de manutenção.</p>
+        <div class="admin-actions">
+          <button id="export-csv" type="button">Exportar CSV</button>
+          <button id="download-csv" class="secondary" type="button">Descarregar ficheiro CSV</button>
+          <button id="clear-results" class="secondary danger" type="button">Limpar resultados</button>
+        </div>
         <textarea id="csv-output" readonly rows="8" aria-label="Exportação CSV">Sem resultados submetidos.</textarea>
       </section>
     </main>
@@ -174,6 +188,6 @@
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260526-admin-search-layout"></script>
+    <script src="app.js?v=20260526-admin-tools-table"></script>
   </body>
 </html>

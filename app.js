@@ -1,6 +1,5 @@
 const DATA_SOURCE = "alunos.csv";
 const STORAGE_KEY = "escolhas12ano.resultados";
-const ADMIN_EMAIL = "mat_tic_josesantos@c-guadalupe.com";
 const SUPABASE_URL = "https://rygyxkcgvimvommdnuiw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_RVB9XvY8C7qLzbxvGc7E-A_ch_FCYH6";
 const SUPABASE_MODULE_URLS = [
@@ -130,6 +129,8 @@ const refreshResultsButton = document.querySelector("#refresh-results");
 const exportCsvButton = document.querySelector("#export-csv");
 const downloadCsvButton = document.querySelector("#download-csv");
 const clearResultsButton = document.querySelector("#clear-results");
+const openAdminToolsButton = document.querySelector("#open-admin-tools");
+const backAdminButton = document.querySelector("#back-admin");
 const adminFiltersForm = document.querySelector("#admin-filters");
 const filterCourse = document.querySelector("#filter-course");
 const filterClass = document.querySelector("#filter-class");
@@ -146,6 +147,7 @@ let signedInAccount = null;
 let authInitPromise = null;
 let supabaseClient = null;
 let supabaseInitPromise = null;
+let isAdminUser = false;
 let adminStudentsCache = [];
 let adminChoicesCache = [];
 
@@ -457,6 +459,22 @@ clearFiltersButton.addEventListener("click", () => {
   renderFilteredAdminDashboard();
 });
 
+openAdminToolsButton.addEventListener("click", () => {
+  if (!isAdminUser) {
+    return;
+  }
+
+  showAdminTools();
+});
+
+backAdminButton.addEventListener("click", () => {
+  if (!isAdminUser) {
+    return;
+  }
+
+  showAdminHome();
+});
+
 downloadCsvButton.addEventListener("click", async () => {
   const { choices } = getFilteredAdminData();
   const csv = buildChoicesCsv(choices);
@@ -485,7 +503,7 @@ clearResultsButton.addEventListener("click", async () => {
 async function loadSignedInStudent(options = {}) {
   const { preferEditor = false } = options;
 
-  if (!signedInAccount || getSignedInEmail() === ADMIN_EMAIL) {
+  if (!signedInAccount || isAdminUser) {
     return;
   }
 
@@ -630,10 +648,8 @@ async function showHome() {
     return;
   }
 
-  if (getSignedInEmail() === ADMIN_EMAIL) {
-    document.querySelector("#admin").classList.remove("hidden");
-    window.history.replaceState(null, "", "#admin");
-    document.querySelector("#admin").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (isAdminUser) {
+    showAdminHome();
     return;
   }
 
@@ -663,6 +679,21 @@ function showChoiceEditor() {
   updateValidation();
   window.history.replaceState(null, "", "#opcoes");
   studentArea.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showAdminHome() {
+  document.querySelector("#admin-tools").classList.add("hidden");
+  document.querySelector("#admin").classList.remove("hidden");
+  window.history.replaceState(null, "", "#admin");
+  document.querySelector("#admin").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showAdminTools() {
+  document.querySelector("#admin").classList.add("hidden");
+  document.querySelector("#admin-tools").classList.remove("hidden");
+  updateCsvOutput();
+  window.history.replaceState(null, "", "#admin-tools");
+  document.querySelector("#admin-tools").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function showSummaryPage(choice) {
@@ -1134,6 +1165,7 @@ async function initAuth() {
 
     if (signedInAccount) {
       msalClient.setActiveAccount(signedInAccount);
+      isAdminUser = await checkAdminAccess(getSignedInEmail());
     }
   } catch (error) {
     showAuthWarning(`Erro ao concluir autenticação: ${error.message}`);
@@ -1198,9 +1230,31 @@ function isAuthConfigured() {
   return window.msal && isClientIdConfigured() && Boolean(msalClient);
 }
 
+async function checkAdminAccess(email) {
+  const client = await ensureSupabaseReady();
+
+  if (!client || !email) {
+    return false;
+  }
+
+  const { data, error } = await client
+    .from("administradores")
+    .select("email")
+    .eq("email", email.toLowerCase())
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Não foi possível validar administrador:", error);
+    return false;
+  }
+
+  return Boolean(data);
+}
+
 function updateAuthUi() {
   const isSignedIn = Boolean(signedInAccount);
-  const isAdmin = isSignedIn && getSignedInEmail() === ADMIN_EMAIL;
+  const isAdmin = isSignedIn && isAdminUser;
 
   document.querySelector("#autenticacao").classList.toggle("hidden", isSignedIn);
   document.querySelectorAll(".requires-auth").forEach((element) => {
@@ -1221,17 +1275,22 @@ function updateAuthUi() {
 
     if (isAdmin) {
       studentArea.classList.add("hidden");
+      summaryArea.classList.add("hidden");
+      showAdminHome();
       updateCsvOutput();
       updateAdminDashboard();
     } else {
       loadSignedInStudent();
     }
   } else {
+    isAdminUser = false;
     headerAuthEmail.textContent = "";
     profilePhoto.classList.add("hidden");
     profilePhoto.removeAttribute("src");
     studentArea.classList.add("hidden");
     summaryArea.classList.add("hidden");
+    document.querySelector("#admin").classList.add("hidden");
+    document.querySelector("#admin-tools").classList.add("hidden");
     document.querySelector("#entrada").classList.add("hidden");
     window.history.replaceState(null, "", HOME_URL);
   }
