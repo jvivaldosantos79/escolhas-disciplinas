@@ -49,6 +49,22 @@ const courseRules = {
     ],
     ruleText: "Deves indicar 3 prioridades. Em cada prioridade, escolhe duas disciplinas anuais; pelo menos uma tem de ser Economia C, Geografia C ou Sociologia."
   },
+  CienciasTecnologiasCambridge: {
+    label: "Ciências e Tecnologias Cambridge",
+    pendingConfiguration: true,
+    requiredGroupName: "opções específicas d",
+    required: [],
+    optional: [],
+    ruleText: "As opções deste curso ainda estão em configuração. Contacta a administração."
+  },
+  SocioeconomicasCambridge: {
+    label: "Ciências Socioeconómicas Cambridge",
+    pendingConfiguration: true,
+    requiredGroupName: "opções específicas d",
+    required: [],
+    optional: [],
+    ruleText: "As opções deste curso ainda estão em configuração. Contacta a administração."
+  },
   LinguasHumanidades: {
     label: "Línguas e Humanidades",
     requiredGroupName: "opções específicas d",
@@ -70,6 +86,19 @@ const courseRules = {
     exactSubjects: ["Oficina de Artes", "Oficina de Multimédia B"],
     ruleText: "As únicas disciplinas possíveis são Oficina de Artes e Oficina de Multimédia B. Como só existe um par válido, não é possível criar 3 prioridades diferentes sem uma regra administrativa especial."
   }
+};
+
+const courseAliases = {
+  "CCH - Ciências e Tecnologias Cambridge": "CienciasTecnologiasCambridge",
+  "CCH - Ciências Socioeconómicas Cambridge": "SocioeconomicasCambridge",
+  "CCH - Ciências e Tecnologias": "CienciasTecnologias",
+  "CCH - Ciências Socioeconómicas": "Socioeconomicas",
+  "CCH - Línguas e Humanidades": "LinguasHumanidades",
+  "CCH - Artes Visuais": "ArtesVisuais",
+  CienciasTecnologias: "CienciasTecnologias",
+  Socioeconomicas: "Socioeconomicas",
+  LinguasHumanidades: "LinguasHumanidades",
+  ArtesVisuais: "ArtesVisuais"
 };
 
 const loginMessage = document.querySelector("#login-message");
@@ -444,7 +473,7 @@ async function loadSignedInStudent(options = {}) {
       return;
     }
 
-    if (!courseRules[student.curso]) {
+    if (!getCourseRules(student.curso)) {
       showLoginError("O teu curso não está configurado nesta aplicação. Contacta a administração.");
       return;
     }
@@ -468,7 +497,7 @@ async function loadSignedInStudent(options = {}) {
 }
 
 function renderStudentArea(student, existingChoice = null) {
-  const rules = courseRules[student.curso];
+  const rules = getCourseRules(student.curso);
 
   document.querySelector("#student-name").textContent = student.nome;
   document.querySelector("#student-class").textContent = student.turma;
@@ -476,6 +505,17 @@ function renderStudentArea(student, existingChoice = null) {
   document.querySelector("#course-rules").textContent = rules.ruleText;
 
   prioritiesList.innerHTML = "";
+
+  if (rules.pendingConfiguration) {
+    validationMessage.textContent = rules.ruleText;
+    validationMessage.className = "validation invalid";
+    submitChoiceButton.disabled = true;
+    choiceStatus.textContent = "Em configuração";
+    choiceStatus.className = "status-pill locked";
+    confirmation.classList.add("hidden");
+    studentArea.classList.remove("hidden");
+    return;
+  }
 
   for (let priority = 1; priority <= 3; priority += 1) {
     prioritiesList.appendChild(createPriorityGroup(priority, rules));
@@ -756,6 +796,15 @@ function updateValidation() {
 }
 
 function validatePriorities(priorities, courseKey) {
+  const rules = getCourseRules(courseKey);
+
+  if (rules?.pendingConfiguration) {
+    return {
+      valid: false,
+      message: rules.ruleText
+    };
+  }
+
   for (const item of priorities) {
     const validation = validateSelection(item.subjects, courseKey);
 
@@ -811,8 +860,16 @@ function normalizePriorityPair(subjects) {
   return [...subjects].sort((first, second) => first.localeCompare(second, "pt-PT")).join("||");
 }
 
+function normalizeCourseKey(course) {
+  return courseAliases[course] || course;
+}
+
+function getCourseRules(course) {
+  return courseRules[normalizeCourseKey(course)];
+}
+
 function findOverusedRequiredSubject(priorities, courseKey) {
-  const rules = courseRules[courseKey];
+  const rules = getCourseRules(courseKey);
   const counts = new Map();
 
   priorities.flatMap((item) => item.subjects).forEach((subject) => {
@@ -833,7 +890,8 @@ function findOverusedRequiredSubject(priorities, courseKey) {
 }
 
 function validateSelection(selectedSubjects, courseKey) {
-  const rules = courseRules[courseKey];
+  const normalizedCourseKey = normalizeCourseKey(courseKey);
+  const rules = getCourseRules(courseKey);
 
   if (selectedSubjects.length !== 2) {
     return {
@@ -842,7 +900,7 @@ function validateSelection(selectedSubjects, courseKey) {
     };
   }
 
-  if (courseKey === "ArtesVisuais") {
+  if (normalizedCourseKey === "ArtesVisuais") {
     const hasOnlyExactSubjects = rules.exactSubjects.every((subject) => selectedSubjects.includes(subject));
 
     return hasOnlyExactSubjects
