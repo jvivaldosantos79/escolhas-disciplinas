@@ -436,6 +436,13 @@ dd {
   gap: 0.75rem;
 }
 
+.summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
 .admin-results {
   margin-top: 1rem;
   overflow-x: auto;
@@ -502,6 +509,10 @@ code {
   .header-session {
     align-items: flex-start;
     flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .summary-actions {
     justify-content: flex-start;
   }
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolhas de Disciplinas do 12.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260526-profile-page">
+    <link rel="stylesheet" href="style.css?v=20260526-summary-page">
   </head>
   <body>
     <header class="topbar">
@@ -16,7 +16,7 @@
         </div>
       </div>
       <nav aria-label="Navegação principal">
-        <a href="#entrada">Aluno</a>
+        <a id="home-link" href="#home">Início</a>
         <a id="admin-nav" class="hidden" href="#admin">Administração</a>
       </nav>
       <div id="header-session" class="header-session hidden" aria-live="polite">
@@ -45,6 +45,21 @@
           <p>A aplicação valida automaticamente os teus dados através da conta Microsoft 365.</p>
         </div>
         <p id="login-message" class="message" role="status" aria-live="polite">A procurar os teus dados...</p>
+      </section>
+
+      <section id="summary-area" class="panel hidden" aria-labelledby="titulo-resumo">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Resumo da submissão</p>
+            <h2 id="titulo-resumo">Escolhas registadas</h2>
+          </div>
+          <div class="summary-actions">
+            <button id="go-home" class="secondary" type="button">Ir para início</button>
+            <button id="edit-choice" type="button">Alterar escolhas</button>
+          </div>
+        </div>
+        <p id="summary-message" class="message"></p>
+        <div id="summary-table"></div>
       </section>
 
       <section id="student-area" class="panel hidden" aria-labelledby="titulo-aluno">
@@ -116,6 +131,6 @@
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260526-profile-page"></script>
+    <script src="app.js?v=20260526-summary-page"></script>
   </body>
 </html>

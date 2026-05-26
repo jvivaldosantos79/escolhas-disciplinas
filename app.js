@@ -79,8 +79,14 @@ const headerSession = document.querySelector("#header-session");
 const headerAuthEmail = document.querySelector("#header-auth-email");
 const profilePhoto = document.querySelector("#profile-photo");
 const headerSignOutButton = document.querySelector("#header-sign-out");
+const homeLink = document.querySelector("#home-link");
 const adminNav = document.querySelector("#admin-nav");
 const studentArea = document.querySelector("#student-area");
+const summaryArea = document.querySelector("#summary-area");
+const summaryMessage = document.querySelector("#summary-message");
+const summaryTable = document.querySelector("#summary-table");
+const goHomeButton = document.querySelector("#go-home");
+const editChoiceButton = document.querySelector("#edit-choice");
 const choiceStatus = document.querySelector("#choice-status");
 const choicesForm = document.querySelector("#choices-form");
 const prioritiesList = document.querySelector("#priorities-list");
@@ -317,10 +323,26 @@ headerSignOutButton.addEventListener("click", async () => {
     return;
   }
 
+  showHome();
   await msalClient.logoutRedirect({
     account: signedInAccount,
     postLogoutRedirectUri: HOME_URL
   });
+});
+
+homeLink.addEventListener("click", (event) => {
+  event.preventDefault();
+  showHome();
+});
+
+goHomeButton.addEventListener("click", showHome);
+
+editChoiceButton.addEventListener("click", () => {
+  if (!currentStudent) {
+    return;
+  }
+
+  showChoiceEditor();
 });
 
 choicesForm.addEventListener("change", () => {
@@ -352,10 +374,9 @@ choicesForm.addEventListener("submit", async (event) => {
     submitChoiceButton.disabled = true;
     await choiceRepository.save(choice);
     currentChoice = await choiceRepository.getByAlunoId(currentStudent.aluno_id);
-    confirmation.classList.remove("hidden");
-    confirmation.textContent = "Escolha guardada na base de dados.";
     updateChoiceStatus(currentChoice);
     await updateCsvOutput();
+    showSummaryPage(currentChoice);
   } catch (error) {
     validationMessage.textContent = error.message;
     validationMessage.className = "validation invalid";
@@ -418,6 +439,12 @@ async function loadSignedInStudent() {
     loginMessage.textContent = "";
     document.querySelector("#entrada").classList.add("hidden");
     renderStudentArea(student, currentChoice);
+
+    if (currentChoice) {
+      showSummaryPage(currentChoice);
+    } else {
+      showChoiceEditor();
+    }
   } catch (error) {
     showLoginError(error.message);
   }
@@ -450,11 +477,8 @@ function renderStudentArea(student, existingChoice = null) {
 
   updateChoiceStatus(existingChoice);
   setChoicesLocked(existingChoice?.estado === "bloqueada");
-  studentArea.classList.remove("hidden");
-  window.history.replaceState(null, "", "#opcoes");
   submitChoiceButton.disabled = true;
   updateValidation();
-  studentArea.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function prefillChoice(choice) {
@@ -494,13 +518,113 @@ function updateChoiceStatus(choice) {
 }
 
 function setChoicesLocked(isLocked) {
+  if (!isLocked) {
+    document.querySelectorAll('input[type="checkbox"][name^="priority-"]').forEach((input) => {
+      input.disabled = false;
+    });
+    enforcePriorityLimits();
+    return;
+  }
+
   document.querySelectorAll('input[type="checkbox"][name^="priority-"]').forEach((input) => {
-    input.disabled = isLocked || input.disabled;
+    input.disabled = true;
   });
 
-  if (isLocked) {
-    submitChoiceButton.disabled = true;
+  submitChoiceButton.disabled = true;
+}
+
+function showHome() {
+  studentArea.classList.add("hidden");
+  summaryArea.classList.add("hidden");
+
+  if (signedInAccount && getSignedInEmail() !== ADMIN_EMAIL) {
+    document.querySelector("#entrada").classList.remove("hidden");
   }
+
+  window.history.replaceState(null, "", HOME_URL);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showChoiceEditor() {
+  if (!currentStudent) {
+    return;
+  }
+
+  document.querySelector("#entrada").classList.add("hidden");
+  summaryArea.classList.add("hidden");
+  studentArea.classList.remove("hidden");
+  setChoicesLocked(currentChoice?.estado === "bloqueada");
+  updateValidation();
+  window.history.replaceState(null, "", "#opcoes");
+  studentArea.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showSummaryPage(choice) {
+  studentArea.classList.add("hidden");
+  document.querySelector("#entrada").classList.add("hidden");
+  summaryArea.classList.remove("hidden");
+  renderSummaryTable(choice);
+
+  const isLocked = choice?.estado === "bloqueada";
+  summaryMessage.textContent = isLocked
+    ? "A submissão está bloqueada pela administração e não pode ser alterada."
+    : "A submissão está guardada e ainda pode ser alterada.";
+  editChoiceButton.classList.toggle("hidden", isLocked);
+
+  window.history.replaceState(null, "", "#resumo");
+  summaryArea.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderSummaryTable(choice) {
+  if (!choice) {
+    summaryTable.textContent = "Ainda não existe submissão.";
+    return;
+  }
+
+  const table = document.createElement("table");
+  table.className = "results-table";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Prioridade</th>
+        <th>Disciplina 1</th>
+        <th>Disciplina 2</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+
+  const tbody = table.querySelector("tbody");
+
+  choice.prioridades.forEach((item) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>Prioridade ${item.priority}</td>
+      <td>${escapeHtml(item.subjects[0])}</td>
+      <td>${escapeHtml(item.subjects[1])}</td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  const meta = document.createElement("dl");
+  meta.className = "student-summary";
+  meta.innerHTML = `
+    <div>
+      <dt>Aluno</dt>
+      <dd>${escapeHtml(choice.nome)}</dd>
+    </div>
+    <div>
+      <dt>Turma</dt>
+      <dd>${escapeHtml(choice.turma)}</dd>
+    </div>
+    <div>
+      <dt>Estado</dt>
+      <dd>${choice.estado === "bloqueada" ? "Bloqueada" : "Editável"}</dd>
+    </div>
+  `;
+
+  summaryTable.innerHTML = "";
+  summaryTable.append(meta, table);
 }
 
 function createPriorityGroup(priority, rules) {
@@ -978,6 +1102,9 @@ function updateAuthUi() {
     profilePhoto.classList.add("hidden");
     profilePhoto.removeAttribute("src");
     studentArea.classList.add("hidden");
+    summaryArea.classList.add("hidden");
+    document.querySelector("#entrada").classList.add("hidden");
+    window.history.replaceState(null, "", HOME_URL);
   }
 }
 
