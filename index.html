@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Escolhas de Disciplinas do 12.º Ano</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="logo.png" alt="Logotipo do Colégio Guadalupe">
+        <div>
+          <p class="eyebrow">Colégio Guadalupe</p>
+          <h1>Escolhas de disciplinas do 12.º ano</h1>
+        </div>
+      </div>
+      <nav aria-label="Navegação principal">
+        <a href="#entrada">Aluno</a>
+        <a href="#admin">Administração</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="panel intro" aria-labelledby="titulo-entrada" id="entrada">
+        <div>
+          <h2 id="titulo-entrada">Entrada do aluno</h2>
+          <p>Introduz o número de aluno ou código de acesso para consultar as opções disponíveis para o teu curso.</p>
+        </div>
+
+        <form id="login-form" class="login-form">
+          <label for="student-code">Número de aluno / código</label>
+          <div class="inline-form">
+            <input id="student-code" name="student-code" inputmode="numeric" autocomplete="off" placeholder="Ex.: 12345" required>
+            <button type="submit">Entrar</button>
+          </div>
+          <p class="form-note">Dados carregados a partir de <code>alunos.csv</code>. Exemplo: 12345, 12346, 12347 ou 12348.</p>
+          <p id="login-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section id="student-area" class="panel hidden" aria-labelledby="titulo-aluno">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Área do aluno</p>
+            <h2 id="titulo-aluno">Dados e regras aplicáveis</h2>
+          </div>
+          <button id="change-student" class="secondary" type="button">Trocar aluno</button>
+        </div>
+
+        <dl class="student-summary">
+          <div>
+            <dt>Nome</dt>
+            <dd id="student-name">-</dd>
+          </div>
+          <div>
+            <dt>Turma</dt>
+            <dd id="student-class">-</dd>
+          </div>
+          <div>
+            <dt>Curso</dt>
+            <dd id="student-course">-</dd>
+          </div>
+        </dl>
+
+        <div class="rules-box">
+          <h3>Regras de escolha</h3>
+          <p id="course-rules"></p>
+        </div>
+
+        <form id="choices-form" class="choices-form">
+          <fieldset>
+            <legend>Prioridades de escolha</legend>
+            <p class="form-note">Preenche obrigatoriamente as 3 prioridades. Cada prioridade deve ter exatamente duas disciplinas válidas.</p>
+            <div id="priorities-list" class="priorities-list"></div>
+          </fieldset>
+
+          <div id="validation-message" class="validation invalid" role="status" aria-live="polite">
+            Escolha inválida: preenche as 3 prioridades.
+          </div>
+
+          <button id="submit-choice" type="submit" disabled>Submeter escolha</button>
+        </form>
+
+        <div id="confirmation" class="confirmation hidden" aria-live="polite"></div>
+      </section>
+
+      <section class="panel details" aria-labelledby="titulo-config">
+        <h2 id="titulo-config">Configuração da base de dados</h2>
+        <div class="info-grid">
+          <article>
+            <h3>Versão simples com CSV</h3>
+            <p>Coloca os alunos em <code>alunos.csv</code> com as colunas <code>aluno_id,nome,turma,curso</code>. Em GitHub Pages, Netlify, Vercel ou Cloudflare Pages o ficheiro pode ser lido diretamente pelo navegador.</p>
+          </article>
+          <article>
+            <h3>Google Sheets</h3>
+            <p>Publica a folha como CSV e substitui, em <code>app.js</code>, a constante <code>DATA_SOURCE</code> pelo URL publicado. Evita dados sensíveis.</p>
+          </article>
+          <article>
+            <h3>Alternativa Supabase</h3>
+            <p>Cria as tabelas <code>alunos</code> e <code>escolhas</code>, ativa autenticação se necessário e troca apenas a camada <code>studentRepository</code> e <code>choiceRepository</code>.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel admin" aria-labelledby="admin" id="admin">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Administração</p>
+            <h2>Exportar resultados</h2>
+          </div>
+          <button id="clear-results" class="secondary danger" type="button">Limpar resultados</button>
+        </div>
+        <p>As escolhas desta versão ficam guardadas no navegador, em <code>localStorage</code>. Para recolha centralizada, usa Google Forms/Sheets ou Supabase.</p>
+        <div class="admin-actions">
+          <button id="export-csv" type="button">Exportar CSV</button>
+          <button id="download-csv" class="secondary" type="button">Descarregar ficheiro CSV</button>
+        </div>
+        <textarea id="csv-output" readonly rows="8" aria-label="Exportação CSV">Sem resultados submetidos.</textarea>
+      </section>
+
+      <section class="panel details" aria-labelledby="titulo-publicacao">
+        <h2 id="titulo-publicacao">Publicar no GitHub Pages</h2>
+        <ol class="steps">
+          <li>Cria um repositório no GitHub e envia a pasta <code>escolhas-12ano</code>.</li>
+          <li>Nas definições do repositório, abre <strong>Pages</strong>.</li>
+          <li>Escolhe a branch principal e a pasta raiz do projeto.</li>
+          <li>Confirma que <code>index.html</code>, <code>style.css</code>, <code>app.js</code> e <code>alunos.csv</code> ficam publicados juntos.</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer>
+      <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
