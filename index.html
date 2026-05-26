@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolhas de Disciplinas do 12.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260526-home-state">
+    <link rel="stylesheet" href="style.css?v=20260526-cancel-edit">
   </head>
   <body>
     <header class="topbar">
@@ -102,7 +102,10 @@
             Escolha inválida: preenche as 3 prioridades.
           </div>
 
-          <button id="submit-choice" type="submit" disabled>Guardar escolha</button>
+          <div class="form-actions">
+            <button id="submit-choice" type="submit" disabled>Guardar escolha</button>
+            <button id="cancel-edit" class="secondary hidden" type="button">Cancelar</button>
+          </div>
         </form>
 
         <div id="confirmation" class="confirmation hidden" aria-live="polite"></div>
@@ -131,6 +134,6 @@
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260526-home-state"></script>
+    <script src="app.js?v=20260526-cancel-edit"></script>
   </body>
 </html>

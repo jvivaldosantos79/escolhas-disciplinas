@@ -92,6 +92,7 @@ const choicesForm = document.querySelector("#choices-form");
 const prioritiesList = document.querySelector("#priorities-list");
 const validationMessage = document.querySelector("#validation-message");
 const submitChoiceButton = document.querySelector("#submit-choice");
+const cancelEditButton = document.querySelector("#cancel-edit");
 const confirmation = document.querySelector("#confirmation");
 const csvOutput = document.querySelector("#csv-output");
 const adminResults = document.querySelector("#admin-results");
@@ -330,12 +331,14 @@ headerSignOutButton.addEventListener("click", async () => {
   });
 });
 
-homeLink.addEventListener("click", (event) => {
+homeLink.addEventListener("click", async (event) => {
   event.preventDefault();
-  showHome();
+  await showHome();
 });
 
-goHomeButton.addEventListener("click", showHome);
+goHomeButton.addEventListener("click", async () => {
+  await showHome();
+});
 
 editChoiceButton.addEventListener("click", () => {
   if (!currentStudent) {
@@ -343,6 +346,16 @@ editChoiceButton.addEventListener("click", () => {
   }
 
   showChoiceEditor();
+});
+
+cancelEditButton.addEventListener("click", () => {
+  if (currentChoice) {
+    renderStudentArea(currentStudent, currentChoice);
+    showSummaryPage(currentChoice);
+    return;
+  }
+
+  showHome();
 });
 
 choicesForm.addEventListener("change", () => {
@@ -412,7 +425,9 @@ clearResultsButton.addEventListener("click", async () => {
   }
 });
 
-async function loadSignedInStudent() {
+async function loadSignedInStudent(options = {}) {
+  const { preferEditor = false } = options;
+
   if (!signedInAccount || getSignedInEmail() === ADMIN_EMAIL) {
     return;
   }
@@ -440,7 +455,9 @@ async function loadSignedInStudent() {
     document.querySelector("#entrada").classList.add("hidden");
     renderStudentArea(student, currentChoice);
 
-    if (currentChoice) {
+    if (preferEditor) {
+      showChoiceEditor();
+    } else if (currentChoice) {
       showSummaryPage(currentChoice);
     } else {
       showChoiceEditor();
@@ -533,7 +550,7 @@ function setChoicesLocked(isLocked) {
   submitChoiceButton.disabled = true;
 }
 
-function showHome() {
+async function showHome() {
   studentArea.classList.add("hidden");
   summaryArea.classList.add("hidden");
   document.querySelector("#entrada").classList.add("hidden");
@@ -562,9 +579,7 @@ function showHome() {
     return;
   }
 
-  document.querySelector("#entrada").classList.remove("hidden");
-  window.history.replaceState(null, "", HOME_URL);
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  await loadSignedInStudent({ preferEditor: true });
 }
 
 function showChoiceEditor() {
@@ -575,6 +590,7 @@ function showChoiceEditor() {
   document.querySelector("#entrada").classList.add("hidden");
   summaryArea.classList.add("hidden");
   studentArea.classList.remove("hidden");
+  cancelEditButton.classList.toggle("hidden", !currentChoice);
   setChoicesLocked(currentChoice?.estado === "bloqueada");
   updateValidation();
   window.history.replaceState(null, "", "#opcoes");
@@ -592,6 +608,7 @@ function showSummaryPage(choice) {
     ? "A submissão está bloqueada pela administração e não pode ser alterada."
     : "A submissão está guardada e ainda pode ser alterada.";
   editChoiceButton.classList.toggle("hidden", isLocked);
+  cancelEditButton.classList.add("hidden");
 
   window.history.replaceState(null, "", "#resumo");
   summaryArea.scrollIntoView({ behavior: "smooth", block: "start" });
