@@ -149,7 +149,7 @@ signInButton.addEventListener("click", async () => {
   }
 
   try {
-    authStatus.textContent = "A abrir autenticação O365...";
+    authWarning.classList.add("hidden");
     await msalClient.loginRedirect(loginRequest);
   } catch (error) {
     showAuthWarning(`Não foi possível iniciar sessão: ${error.message}`);
