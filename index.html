@@ -17,12 +17,26 @@
       </div>
       <nav aria-label="Navegação principal">
         <a href="#entrada">Aluno</a>
-        <a href="#admin">Administração</a>
+        <a id="admin-nav" class="hidden" href="#admin">Administração</a>
       </nav>
     </header>
 
     <main>
-      <section class="panel intro" aria-labelledby="titulo-entrada" id="entrada">
+      <section class="panel auth-panel" aria-labelledby="titulo-autenticacao" id="autenticacao">
+        <div>
+          <p class="eyebrow">Acesso O365</p>
+          <h2 id="titulo-autenticacao">Autenticação</h2>
+          <p>Entra com a conta Microsoft 365 do Colégio Guadalupe para aceder à área do aluno.</p>
+          <p id="auth-status" class="message" role="status" aria-live="polite">Sessão não iniciada.</p>
+          <p id="auth-warning" class="message warning hidden"></p>
+        </div>
+        <div class="auth-actions">
+          <button id="sign-in" type="button">Entrar com O365</button>
+          <button id="sign-out" class="secondary hidden" type="button">Terminar sessão</button>
+        </div>
+      </section>
+
+      <section class="panel intro requires-auth hidden" aria-labelledby="titulo-entrada" id="entrada">
         <div>
           <h2 id="titulo-entrada">Entrada do aluno</h2>
           <p>Introduz o número de aluno ou código de acesso para consultar as opções disponíveis para o teu curso.</p>
@@ -100,10 +114,14 @@
             <h3>Alternativa Supabase</h3>
             <p>Cria as tabelas <code>alunos</code> e <code>escolhas</code>, ativa autenticação se necessário e troca apenas a camada <code>studentRepository</code> e <code>choiceRepository</code>.</p>
           </article>
+          <article>
+            <h3>Autenticação O365</h3>
+            <p>Regista uma aplicação SPA no Microsoft Entra, adiciona o URL do GitHub Pages como redirect URI e coloca o <code>clientId</code> em <code>MSAL_CLIENT_ID</code>, no ficheiro <code>app.js</code>.</p>
+          </article>
         </div>
       </section>
 
-      <section class="panel admin" aria-labelledby="admin" id="admin">
+      <section class="panel admin admin-only hidden" aria-labelledby="admin" id="admin">
         <div class="section-head">
           <div>
             <p class="eyebrow">Administração</p>
@@ -111,7 +129,7 @@
           </div>
           <button id="clear-results" class="secondary danger" type="button">Limpar resultados</button>
         </div>
-        <p>As escolhas desta versão ficam guardadas no navegador, em <code>localStorage</code>. Para recolha centralizada, usa Google Forms/Sheets ou Supabase.</p>
+        <p>Área disponível apenas para o administrador autenticado. As escolhas desta versão ficam guardadas no navegador, em <code>localStorage</code>. Para recolha centralizada, usa Google Forms/Sheets ou Supabase.</p>
         <div class="admin-actions">
           <button id="export-csv" type="button">Exportar CSV</button>
           <button id="download-csv" class="secondary" type="button">Descarregar ficheiro CSV</button>
@@ -134,6 +152,7 @@
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
+    <script src="https://alcdn.msauth.net/browser/2.38.4/js/msal-browser.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

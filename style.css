@@ -206,6 +206,20 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.auth-panel {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.auth-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .form-note,
 .message,
 .admin p,
@@ -217,6 +231,11 @@ textarea {
 .message {
   margin: 0.8rem 0 0;
   min-height: 1.5rem;
+}
+
+.warning {
+  color: var(--invalid);
+  font-weight: 800;
 }
 
 .hidden {
@@ -351,7 +370,7 @@ dd {
 .info-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .info-grid article {
@@ -384,7 +403,8 @@ code {
 
 @media (max-width: 820px) {
   .topbar,
-  .section-head {
+  .section-head,
+  .auth-panel {
     align-items: stretch;
     flex-direction: column;
   }

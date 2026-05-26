@@ -1,5 +1,11 @@
 const DATA_SOURCE = "alunos.csv";
 const STORAGE_KEY = "escolhas12ano.resultados";
+const ADMIN_EMAIL = "mat_tic_josesantos@c-guadalupe.com";
+
+// Preenche este valor no Azure/Microsoft Entra depois de registares a aplicação SPA.
+const MSAL_CLIENT_ID = "585048a3-1008-413b-af8a-cabb2ca780ca";
+const MSAL_TENANT = "57b6e55f-5343-418f-b407-7ccfac24fab0";
+const MSAL_REDIRECT_URI = window.location.origin + window.location.pathname;
 
 const courseRules = {
   CienciasTecnologias: {
@@ -56,6 +62,11 @@ const courseRules = {
 const loginForm = document.querySelector("#login-form");
 const studentCodeInput = document.querySelector("#student-code");
 const loginMessage = document.querySelector("#login-message");
+const authStatus = document.querySelector("#auth-status");
+const authWarning = document.querySelector("#auth-warning");
+const signInButton = document.querySelector("#sign-in");
+const signOutButton = document.querySelector("#sign-out");
+const adminNav = document.querySelector("#admin-nav");
 const studentArea = document.querySelector("#student-area");
 const changeStudentButton = document.querySelector("#change-student");
 const choicesForm = document.querySelector("#choices-form");
@@ -70,6 +81,12 @@ const clearResultsButton = document.querySelector("#clear-results");
 
 let students = [];
 let currentStudent = null;
+let msalClient = null;
+let signedInAccount = null;
+
+const loginRequest = {
+  scopes: ["openid", "profile", "email"]
+};
 
 const studentRepository = {
   async getAll() {
@@ -115,8 +132,38 @@ const choiceRepository = {
   }
 };
 
+signInButton.addEventListener("click", async () => {
+  if (!isAuthConfigured()) {
+    showAuthWarning("A autenticação O365 ainda não está configurada. Preenche MSAL_CLIENT_ID em app.js.");
+    return;
+  }
+
+  try {
+    await msalClient.loginRedirect(loginRequest);
+  } catch (error) {
+    showAuthWarning(`Não foi possível iniciar sessão: ${error.message}`);
+  }
+});
+
+signOutButton.addEventListener("click", async () => {
+  if (!msalClient || !signedInAccount) {
+    return;
+  }
+
+  await msalClient.logoutRedirect({
+    account: signedInAccount,
+    postLogoutRedirectUri: MSAL_REDIRECT_URI
+  });
+});
+
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+
+  if (!signedInAccount) {
+    showLoginError("Tens de iniciar sessão com a conta O365 antes de entrar na área do aluno.");
+    return;
+  }
+
   loginMessage.textContent = "A procurar aluno...";
   confirmation.classList.add("hidden");
 
@@ -131,6 +178,11 @@ loginForm.addEventListener("submit", async (event) => {
 
     if (!courseRules[student.curso]) {
       showLoginError("O curso associado ao aluno não está configurado nesta aplicação.");
+      return;
+    }
+
+    if (!studentMatchesSignedInAccount(student)) {
+      showLoginError("Este número de aluno não corresponde à conta O365 autenticada.");
       return;
     }
 
@@ -169,6 +221,7 @@ choicesForm.addEventListener("submit", (event) => {
     nome: currentStudent.nome,
     turma: currentStudent.turma,
     curso: currentStudent.curso,
+    autenticado_com: getSignedInEmail(),
     prioridades: priorities,
     submetido_em: new Date().toISOString()
   };
@@ -454,6 +507,101 @@ function showLoginError(message) {
   studentArea.classList.add("hidden");
 }
 
+async function initAuth() {
+  if (!isAuthConfigured()) {
+    showAuthWarning("Autenticação O365 por configurar: regista a app no Microsoft Entra e substitui MSAL_CLIENT_ID em app.js.");
+    updateAuthUi();
+    return;
+  }
+
+  const msalConfig = {
+    auth: {
+      clientId: MSAL_CLIENT_ID,
+      authority: `https://login.microsoftonline.com/${MSAL_TENANT}`,
+      redirectUri: MSAL_REDIRECT_URI
+    },
+    cache: {
+      cacheLocation: "sessionStorage",
+      storeAuthStateInCookie: false
+    }
+  };
+
+  msalClient = new msal.PublicClientApplication(msalConfig);
+
+  try {
+    const response = await msalClient.handleRedirectPromise();
+
+    if (response && response.account) {
+      signedInAccount = response.account;
+    } else {
+      const accounts = msalClient.getAllAccounts();
+      signedInAccount = accounts[0] || null;
+    }
+
+    if (signedInAccount) {
+      msalClient.setActiveAccount(signedInAccount);
+    }
+  } catch (error) {
+    showAuthWarning(`Erro ao concluir autenticação: ${error.message}`);
+  }
+
+  updateAuthUi();
+}
+
+function isAuthConfigured() {
+  return window.msal && MSAL_CLIENT_ID && !MSAL_CLIENT_ID.includes("COLOCA_AQUI");
+}
+
+function updateAuthUi() {
+  const isSignedIn = Boolean(signedInAccount);
+  const isAdmin = isSignedIn && getSignedInEmail() === ADMIN_EMAIL;
+
+  document.querySelectorAll(".requires-auth").forEach((element) => {
+    element.classList.toggle("hidden", !isSignedIn);
+  });
+
+  document.querySelectorAll(".admin-only").forEach((element) => {
+    element.classList.toggle("hidden", !isAdmin);
+  });
+
+  adminNav.classList.toggle("hidden", !isAdmin);
+  signInButton.classList.toggle("hidden", isSignedIn);
+  signOutButton.classList.toggle("hidden", !isSignedIn);
+
+  if (isSignedIn) {
+    authStatus.textContent = `Sessão iniciada como ${getSignedInEmail()}.`;
+  } else {
+    authStatus.textContent = "Sessão não iniciada.";
+    studentArea.classList.add("hidden");
+  }
+}
+
+function showAuthWarning(message) {
+  authWarning.textContent = message;
+  authWarning.classList.remove("hidden");
+}
+
+function getSignedInEmail() {
+  if (!signedInAccount) {
+    return "";
+  }
+
+  return (
+    signedInAccount.username ||
+    signedInAccount.idTokenClaims?.preferred_username ||
+    signedInAccount.idTokenClaims?.email ||
+    ""
+  ).toLowerCase();
+}
+
+function studentMatchesSignedInAccount(student) {
+  if (!student.email) {
+    return true;
+  }
+
+  return student.email.toLowerCase() === getSignedInEmail();
+}
+
 function updateCsvOutput() {
   const csv = buildChoicesCsv(choiceRepository.getAll());
   csvOutput.value = csv || "Sem resultados submetidos.";
@@ -470,6 +618,7 @@ function buildChoicesCsv(choices) {
       "nome",
       "turma",
       "curso",
+      "autenticado_com",
       "prioridade_1_disciplina_1",
       "prioridade_1_disciplina_2",
       "prioridade_2_disciplina_1",
@@ -486,6 +635,7 @@ function buildChoicesCsv(choices) {
         choice.nome,
         choice.turma,
         choice.curso,
+        choice.autenticado_com || "",
         ...prioritySubjects,
         choice.submetido_em
       ];
@@ -519,4 +669,5 @@ function escapeCsvValue(value) {
   return text;
 }
 
+initAuth();
 updateCsvOutput();
