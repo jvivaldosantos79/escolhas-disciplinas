@@ -430,6 +430,13 @@ dd {
   width: 1.1rem;
 }
 
+.subject-option input[type="radio"],
+.subject-option input[type="checkbox"] {
+  cursor: pointer;
+  height: 1.1rem;
+  padding: 0;
+}
+
 .subject-option span {
   font-weight: 700;
 }

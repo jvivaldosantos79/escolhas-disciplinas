@@ -571,6 +571,14 @@ function renderStudentArea(student, existingChoice = null) {
 
   prioritiesList.innerHTML = "";
   cambridgeExtraList.innerHTML = "";
+  document.querySelectorAll(".cambridge-main-card").forEach((label) => {
+    label.onclick = () => {
+      window.setTimeout(() => {
+        updateCambridgeUi();
+        updateValidation();
+      }, 0);
+    };
+  });
   standardChoices.classList.toggle("hidden", Boolean(rules.cambridge));
   cambridgeChoices.classList.toggle("hidden", !rules.cambridge);
 
@@ -930,6 +938,10 @@ function createCambridgeExtraOption(subject, rules) {
   group.textContent = `${rules.requiredGroupName} - opção d)`;
   text.appendChild(group);
   label.append(input, text);
+  label.addEventListener("click", () => {
+    input.checked = true;
+    updateValidation();
+  });
   return label;
 }
 
