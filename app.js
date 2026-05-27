@@ -50,19 +50,21 @@ const courseRules = {
   },
   CienciasTecnologiasCambridge: {
     label: "Ciências e Tecnologias Cambridge",
-    pendingConfiguration: true,
+    cambridge: true,
+    cambridgeType: "ct",
     requiredGroupName: "opções específicas d",
-    required: [],
+    required: ["Biologia", "Física", "Química"],
     optional: [],
-    ruleText: "As opções deste curso ainda estão em configuração. Contacta a administração."
+    ruleText: "Indica se vais fazer exame de Maths em outubro. Se sim, escolhe Psychology, Economics ou ambas e seleciona uma disciplina adicional entre Biologia, Física ou Química. Se não, ficas inscrito automaticamente em Psychology e Economics."
   },
   SocioeconomicasCambridge: {
     label: "Ciências Socioeconómicas Cambridge",
-    pendingConfiguration: true,
+    cambridge: true,
+    cambridgeType: "se",
     requiredGroupName: "opções específicas d",
-    required: [],
+    required: ["Geografia C", "Sociologia", "Economia C"],
     optional: [],
-    ruleText: "As opções deste curso ainda estão em configuração. Contacta a administração."
+    ruleText: "Indica se vais fazer exame de Maths em outubro. Se sim, escolhe Psychology, Economics ou ambas. Dependendo da escolha, pode ser necessária uma disciplina adicional."
   },
   LinguasHumanidades: {
     label: "Línguas e Humanidades",
@@ -117,7 +119,14 @@ const goHomeButton = document.querySelector("#go-home");
 const editChoiceButton = document.querySelector("#edit-choice");
 const choiceStatus = document.querySelector("#choice-status");
 const choicesForm = document.querySelector("#choices-form");
+const standardChoices = document.querySelector("#standard-choices");
+const cambridgeChoices = document.querySelector("#cambridge-choices");
 const prioritiesList = document.querySelector("#priorities-list");
+const cambridgeMainOptions = document.querySelector("#cambridge-main-options");
+const cambridgeExtraOptions = document.querySelector("#cambridge-extra-options");
+const cambridgeExtraNote = document.querySelector("#cambridge-extra-note");
+const cambridgeExtraList = document.querySelector("#cambridge-extra-list");
+const cambridgeAutoMessage = document.querySelector("#cambridge-auto-message");
 const validationMessage = document.querySelector("#validation-message");
 const submitChoiceButton = document.querySelector("#submit-choice");
 const cancelEditButton = document.querySelector("#cancel-edit");
@@ -400,14 +409,23 @@ cancelEditButton.addEventListener("click", () => {
 });
 
 choicesForm.addEventListener("change", () => {
-  enforcePriorityLimits();
+  if (isCurrentCourseCambridge()) {
+    updateCambridgeUi();
+  } else {
+    enforcePriorityLimits();
+  }
+
   updateValidation();
 });
 
 choicesForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const priorities = getSelectedPriorities();
-  const validation = validatePriorities(priorities, currentStudent.curso);
+  const isCambridge = isCurrentCourseCambridge();
+  const priorities = isCambridge ? [] : getSelectedPriorities();
+  const cambridge = isCambridge ? getCambridgeSelection() : null;
+  const validation = isCambridge
+    ? validateCambridgeSelection(cambridge, currentStudent.curso)
+    : validatePriorities(priorities, currentStudent.curso);
 
   if (!validation.valid) {
     updateValidation();
@@ -421,6 +439,7 @@ choicesForm.addEventListener("submit", async (event) => {
     curso: currentStudent.curso,
     autenticado_com: getSignedInEmail(),
     prioridades: priorities,
+    cambridge,
     submetido_em: currentChoice?.submetido_em || new Date().toISOString()
   };
 
@@ -551,6 +570,9 @@ function renderStudentArea(student, existingChoice = null) {
   document.querySelector("#course-rules").textContent = rules.ruleText;
 
   prioritiesList.innerHTML = "";
+  cambridgeExtraList.innerHTML = "";
+  standardChoices.classList.toggle("hidden", Boolean(rules.cambridge));
+  cambridgeChoices.classList.toggle("hidden", !rules.cambridge);
 
   if (rules.pendingConfiguration) {
     validationMessage.textContent = rules.ruleText;
@@ -560,6 +582,20 @@ function renderStudentArea(student, existingChoice = null) {
     choiceStatus.className = "status-pill locked";
     confirmation.classList.add("hidden");
     studentArea.classList.remove("hidden");
+    return;
+  }
+
+  if (rules.cambridge) {
+    resetCambridgeForm();
+
+    if (existingChoice?.cambridge) {
+      prefillCambridgeChoice(existingChoice.cambridge);
+    }
+
+    updateCambridgeUi();
+    studentArea.classList.remove("hidden");
+    submitChoiceButton.disabled = true;
+    updateValidation();
     return;
   }
 
@@ -625,11 +661,17 @@ function setChoicesLocked(isLocked) {
     document.querySelectorAll('input[type="checkbox"][name^="priority-"]').forEach((input) => {
       input.disabled = false;
     });
+    document.querySelectorAll('input[name="maths-october"], input[name="cambridge-main"], input[name="cambridge-extra"]').forEach((input) => {
+      input.disabled = false;
+    });
     enforcePriorityLimits();
     return;
   }
 
   document.querySelectorAll('input[type="checkbox"][name^="priority-"]').forEach((input) => {
+    input.disabled = true;
+  });
+  document.querySelectorAll('input[name="maths-october"], input[name="cambridge-main"], input[name="cambridge-extra"]').forEach((input) => {
     input.disabled = true;
   });
 
@@ -721,28 +763,53 @@ function renderSummaryTable(choice) {
 
   const table = document.createElement("table");
   table.className = "results-table";
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th>Prioridade</th>
-        <th>Disciplina 1</th>
-        <th>Disciplina 2</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  `;
+  table.innerHTML = choice.cambridge
+    ? `
+      <thead>
+        <tr>
+          <th>Campo</th>
+          <th>Valor</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `
+    : `
+      <thead>
+        <tr>
+          <th>Prioridade</th>
+          <th>Disciplina 1</th>
+          <th>Disciplina 2</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
 
   const tbody = table.querySelector("tbody");
 
-  choice.prioridades.forEach((item) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>Prioridade ${item.priority}</td>
-      <td>${escapeHtml(item.subjects[0])}</td>
-      <td>${escapeHtml(item.subjects[1])}</td>
-    `;
-    tbody.appendChild(row);
-  });
+  if (choice.cambridge) {
+    const rows = [
+      ["Exame de Maths em outubro", choice.cambridge.faz_maths_outubro ? "Sim" : "Não"],
+      ["Psychology", choice.cambridge.psychology ? "Sim" : "Não"],
+      ["Economics", choice.cambridge.economics ? "Sim" : "Não"],
+      ["Disciplina adicional", choice.cambridge.disciplina_extra || "-"]
+    ];
+
+    rows.forEach(([label, value]) => {
+      const row = document.createElement("tr");
+      row.innerHTML = `<td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td>`;
+      tbody.appendChild(row);
+    });
+  } else {
+    choice.prioridades.forEach((item) => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>Prioridade ${item.priority}</td>
+        <td>${escapeHtml(item.subjects[0])}</td>
+        <td>${escapeHtml(item.subjects[1])}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
 
   const meta = document.createElement("dl");
   meta.className = "student-summary";
@@ -763,6 +830,183 @@ function renderSummaryTable(choice) {
 
   summaryTable.innerHTML = "";
   summaryTable.append(meta, table);
+}
+
+function isCurrentCourseCambridge() {
+  return Boolean(currentStudent && getCourseRules(currentStudent.curso)?.cambridge);
+}
+
+function resetCambridgeForm() {
+  document.querySelectorAll('input[name="maths-october"], input[name="cambridge-main"], input[name="cambridge-extra"]').forEach((input) => {
+    input.checked = false;
+    input.disabled = false;
+  });
+
+  cambridgeMainOptions.classList.add("hidden");
+  cambridgeExtraOptions.classList.add("hidden");
+  cambridgeAutoMessage.classList.add("hidden");
+  cambridgeExtraList.innerHTML = "";
+}
+
+function getCambridgeSelection() {
+  const mathsValue = document.querySelector('input[name="maths-october"]:checked')?.value || "";
+  const selectedMain = Array.from(document.querySelectorAll('input[name="cambridge-main"]:checked')).map((input) => input.value);
+  const extra = document.querySelector('input[name="cambridge-extra"]:checked')?.value || "";
+
+  return {
+    faz_maths_outubro: mathsValue === "yes" ? true : mathsValue === "no" ? false : null,
+    psychology: mathsValue === "no" || selectedMain.includes("Psychology"),
+    economics: mathsValue === "no" || selectedMain.includes("Economics"),
+    disciplina_extra: extra || null
+  };
+}
+
+function updateCambridgeUi() {
+  const rules = getCourseRules(currentStudent.curso);
+  const selection = getCambridgeSelection();
+  const mathsAnswered = selection.faz_maths_outubro !== null;
+
+  cambridgeMainOptions.classList.toggle("hidden", !mathsAnswered || selection.faz_maths_outubro === false);
+  cambridgeAutoMessage.classList.toggle("hidden", selection.faz_maths_outubro !== false);
+  cambridgeExtraOptions.classList.add("hidden");
+  cambridgeExtraList.innerHTML = "";
+
+  if (!mathsAnswered || selection.faz_maths_outubro === false) {
+    return;
+  }
+
+  const mainCount = Number(selection.psychology) + Number(selection.economics);
+
+  if (mainCount === 0) {
+    return;
+  }
+
+  const extraSubjects = getCambridgeExtraSubjects(rules, selection);
+
+  if (extraSubjects.length === 0) {
+    return;
+  }
+
+  cambridgeExtraNote.textContent = "Seleciona uma disciplina adicional.";
+  extraSubjects.forEach((subject) => {
+    cambridgeExtraList.appendChild(createCambridgeExtraOption(subject, rules));
+  });
+  cambridgeExtraOptions.classList.remove("hidden");
+}
+
+function getCambridgeExtraSubjects(rules, selection) {
+  if (rules.cambridgeType === "ct") {
+    return ["Biologia", "Física", "Química"];
+  }
+
+  if (rules.cambridgeType === "se" && selection.psychology && selection.economics) {
+    return [];
+  }
+
+  if (rules.cambridgeType === "se" && selection.psychology) {
+    return ["Geografia C", "Sociologia", "Economia C"];
+  }
+
+  if (rules.cambridgeType === "se" && selection.economics) {
+    return ["Geografia C", "Sociologia"];
+  }
+
+  return [];
+}
+
+function createCambridgeExtraOption(subject, rules) {
+  const label = document.createElement("label");
+  label.className = "subject-option required-subject";
+
+  const input = document.createElement("input");
+  input.type = "radio";
+  input.name = "cambridge-extra";
+  input.value = subject;
+
+  const text = document.createElement("span");
+  text.textContent = subject;
+
+  const group = document.createElement("small");
+  group.textContent = `${rules.requiredGroupName} - opção d)`;
+  text.appendChild(group);
+  label.append(input, text);
+  return label;
+}
+
+function validateCambridgeSelection(selection, courseKey) {
+  const rules = getCourseRules(courseKey);
+
+  if (selection.faz_maths_outubro === null) {
+    return {
+      valid: false,
+      message: "Escolha inválida: responde à questão sobre o exame de Maths em outubro."
+    };
+  }
+
+  if (selection.faz_maths_outubro === false) {
+    return {
+      valid: true,
+      message: "Escolha válida: ficas inscrito automaticamente em Psychology e Economics."
+    };
+  }
+
+  const mainCount = Number(selection.psychology) + Number(selection.economics);
+
+  if (mainCount === 0) {
+    return {
+      valid: false,
+      message: "Escolha inválida: seleciona Psychology, Economics ou ambas."
+    };
+  }
+
+  const extraSubjects = getCambridgeExtraSubjects(rules, selection);
+
+  if (extraSubjects.length > 0 && !selection.disciplina_extra) {
+    return {
+      valid: false,
+      message: "Escolha inválida: seleciona uma disciplina adicional."
+    };
+  }
+
+  if (selection.disciplina_extra && !extraSubjects.includes(selection.disciplina_extra)) {
+    return {
+      valid: false,
+      message: "Escolha inválida: a disciplina adicional selecionada não é permitida para esta combinação."
+    };
+  }
+
+  return {
+    valid: true,
+    message: "Escolha válida para o percurso Cambridge."
+  };
+}
+
+function prefillCambridgeChoice(cambridge) {
+  const mathsValue = cambridge.faz_maths_outubro ? "yes" : "no";
+  const mathsInput = document.querySelector(`input[name="maths-october"][value="${mathsValue}"]`);
+
+  if (mathsInput) {
+    mathsInput.checked = true;
+  }
+
+  ["Psychology", "Economics"].forEach((subject) => {
+    const key = subject.toLowerCase();
+    const input = document.querySelector(`input[name="cambridge-main"][value="${subject}"]`);
+
+    if (input && cambridge[key]) {
+      input.checked = true;
+    }
+  });
+
+  updateCambridgeUi();
+
+  if (cambridge.disciplina_extra) {
+    const extraInput = document.querySelector(`input[name="cambridge-extra"][value="${escapeSelectorValue(cambridge.disciplina_extra)}"]`);
+
+    if (extraInput) {
+      extraInput.checked = true;
+    }
+  }
 }
 
 function createPriorityGroup(priority, rules) {
@@ -848,7 +1092,9 @@ function updateValidation() {
     return;
   }
 
-  const validation = validatePriorities(getSelectedPriorities(), currentStudent.curso);
+  const validation = isCurrentCourseCambridge()
+    ? validateCambridgeSelection(getCambridgeSelection(), currentStudent.curso)
+    : validatePriorities(getSelectedPriorities(), currentStudent.curso);
   validationMessage.textContent = validation.message;
   validationMessage.className = `validation ${validation.valid ? "valid" : "invalid"}`;
   submitChoiceButton.disabled = !validation.valid;
@@ -1076,6 +1322,7 @@ function normalizeStudent(student) {
 function mapChoiceToDatabase(choice, existingChoice = null) {
   const prioritySubjects = getPrioritySubjectsForExport(choice);
   const now = new Date().toISOString();
+  const cambridge = choice.cambridge || {};
 
   return {
     aluno_id: String(choice.aluno_id),
@@ -1083,12 +1330,16 @@ function mapChoiceToDatabase(choice, existingChoice = null) {
     turma: choice.turma,
     curso: choice.curso,
     email_autenticado: choice.autenticado_com,
-    prioridade_1_disciplina_1: prioritySubjects[0],
-    prioridade_1_disciplina_2: prioritySubjects[1],
-    prioridade_2_disciplina_1: prioritySubjects[2],
-    prioridade_2_disciplina_2: prioritySubjects[3],
-    prioridade_3_disciplina_1: prioritySubjects[4],
-    prioridade_3_disciplina_2: prioritySubjects[5],
+    prioridade_1_disciplina_1: prioritySubjects[0] || "",
+    prioridade_1_disciplina_2: prioritySubjects[1] || "",
+    prioridade_2_disciplina_1: prioritySubjects[2] || "",
+    prioridade_2_disciplina_2: prioritySubjects[3] || "",
+    prioridade_3_disciplina_1: prioritySubjects[4] || "",
+    prioridade_3_disciplina_2: prioritySubjects[5] || "",
+    faz_maths_outubro: cambridge.faz_maths_outubro ?? null,
+    cambridge_psychology: Boolean(cambridge.psychology),
+    cambridge_economics: Boolean(cambridge.economics),
+    cambridge_disciplina_extra: cambridge.disciplina_extra || null,
     submetido_em: existingChoice?.submetido_em || choice.submetido_em,
     atualizado_em: existingChoice ? now : null,
     estado: existingChoice?.estado || "submetida"
@@ -1096,6 +1347,12 @@ function mapChoiceToDatabase(choice, existingChoice = null) {
 }
 
 function mapChoiceFromDatabase(row) {
+  const hasCambridgeData =
+    (row.faz_maths_outubro !== null && row.faz_maths_outubro !== undefined) ||
+    row.cambridge_psychology ||
+    row.cambridge_economics ||
+    row.cambridge_disciplina_extra;
+
   return {
     aluno_id: row.aluno_id,
     nome: row.nome,
@@ -1105,17 +1362,25 @@ function mapChoiceFromDatabase(row) {
     prioridades: [
       {
         priority: 1,
-        subjects: [row.prioridade_1_disciplina_1, row.prioridade_1_disciplina_2]
+        subjects: [row.prioridade_1_disciplina_1, row.prioridade_1_disciplina_2].filter(Boolean)
       },
       {
         priority: 2,
-        subjects: [row.prioridade_2_disciplina_1, row.prioridade_2_disciplina_2]
+        subjects: [row.prioridade_2_disciplina_1, row.prioridade_2_disciplina_2].filter(Boolean)
       },
       {
         priority: 3,
-        subjects: [row.prioridade_3_disciplina_1, row.prioridade_3_disciplina_2]
+        subjects: [row.prioridade_3_disciplina_1, row.prioridade_3_disciplina_2].filter(Boolean)
       }
     ],
+    cambridge: hasCambridgeData
+      ? {
+          faz_maths_outubro: row.faz_maths_outubro,
+          psychology: Boolean(row.cambridge_psychology),
+          economics: Boolean(row.cambridge_economics),
+          disciplina_extra: row.cambridge_disciplina_extra || null
+        }
+      : null,
     submetido_em: row.submetido_em,
     atualizado_em: row.atualizado_em,
     estado: row.estado || "submetida"
@@ -1806,6 +2071,10 @@ function buildChoicesCsv(choices) {
       "prioridade_2_disciplina_2",
       "prioridade_3_disciplina_1",
       "prioridade_3_disciplina_2",
+      "faz_maths_outubro",
+      "cambridge_psychology",
+      "cambridge_economics",
+      "cambridge_disciplina_extra",
       "submetido_em",
       "estado"
     ],
@@ -1819,6 +2088,10 @@ function buildChoicesCsv(choices) {
         choice.curso,
         choice.autenticado_com || "",
         ...prioritySubjects,
+        choice.cambridge?.faz_maths_outubro ?? "",
+        choice.cambridge?.psychology ?? "",
+        choice.cambridge?.economics ?? "",
+        choice.cambridge?.disciplina_extra || "",
         choice.submetido_em,
         choice.estado || "submetida"
       ];
@@ -1829,6 +2102,10 @@ function buildChoicesCsv(choices) {
 }
 
 function getPrioritySubjectsForExport(choice) {
+  if (choice.cambridge) {
+    return getCambridgeSubjectsForExport(choice.cambridge);
+  }
+
   if (Array.isArray(choice.prioridades)) {
     const subjects = choice.prioridades.flatMap((item) => item.subjects || []);
     return [...subjects, "", "", "", "", "", ""].slice(0, 6);
@@ -1840,6 +2117,24 @@ function getPrioritySubjectsForExport(choice) {
   }
 
   return ["", "", "", "", "", ""];
+}
+
+function getCambridgeSubjectsForExport(cambridge) {
+  const subjects = [];
+
+  if (cambridge.psychology) {
+    subjects.push("Psychology");
+  }
+
+  if (cambridge.economics) {
+    subjects.push("Economics");
+  }
+
+  if (cambridge.disciplina_extra) {
+    subjects.push(cambridge.disciplina_extra);
+  }
+
+  return [...subjects, "", "", "", "", "", ""].slice(0, 6);
 }
 
 function escapeCsvValue(value) {

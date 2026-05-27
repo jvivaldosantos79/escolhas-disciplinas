@@ -345,6 +345,41 @@ dd {
   padding: 1rem;
 }
 
+.cambridge-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.question-block {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.question-block p {
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.inline-choice {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+  margin-right: 1rem;
+}
+
+.inline-choice input {
+  min-height: auto;
+  width: auto;
+}
+
+.compact-subjects {
+  margin-bottom: 1rem;
+}
+
 .priority-group h3 {
   margin-bottom: 0.15rem;
 }

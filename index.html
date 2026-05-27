@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolhas de Disciplinas do 12.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260526-admin-tools-table">
+    <link rel="stylesheet" href="style.css?v=20260527-cambridge">
   </head>
   <body>
     <header class="topbar">
@@ -92,10 +92,51 @@
         </div>
 
         <form id="choices-form" class="choices-form">
-          <fieldset>
+          <fieldset id="standard-choices">
             <legend>Prioridades de escolha</legend>
             <p class="form-note">Preenche obrigatoriamente as 3 prioridades. Cada prioridade deve ter exatamente duas disciplinas válidas.</p>
             <div id="priorities-list" class="priorities-list"></div>
+          </fieldset>
+
+          <fieldset id="cambridge-choices" class="hidden">
+            <legend>Opções Cambridge</legend>
+            <div class="cambridge-panel">
+              <p class="form-note">Responde à questão inicial e confirma as disciplinas aplicáveis ao teu percurso Cambridge.</p>
+              <div class="question-block">
+                <p>Vais fazer exame de Maths em outubro?</p>
+                <label class="inline-choice">
+                  <input type="radio" name="maths-october" value="yes">
+                  Sim
+                </label>
+                <label class="inline-choice">
+                  <input type="radio" name="maths-october" value="no">
+                  Não
+                </label>
+              </div>
+
+              <div id="cambridge-main-options" class="hidden">
+                <p class="form-note">Seleciona Psychology, Economics ou ambas.</p>
+                <div class="subjects-list compact-subjects">
+                  <label class="subject-option optional-subject">
+                    <input type="checkbox" name="cambridge-main" value="Psychology">
+                    <span>Psychology<small>Cambridge</small></span>
+                  </label>
+                  <label class="subject-option optional-subject">
+                    <input type="checkbox" name="cambridge-main" value="Economics">
+                    <span>Economics<small>Cambridge</small></span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="cambridge-extra-options" class="hidden">
+                <p id="cambridge-extra-note" class="form-note">Seleciona uma disciplina adicional.</p>
+                <div id="cambridge-extra-list" class="subjects-list compact-subjects"></div>
+              </div>
+
+              <div id="cambridge-auto-message" class="confirmation hidden">
+                Ficas automaticamente inscrito em Psychology e Economics.
+              </div>
+            </div>
           </fieldset>
 
           <div id="validation-message" class="validation invalid" role="status" aria-live="polite">
@@ -188,6 +229,6 @@
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260526-admin-tools-table"></script>
+    <script src="app.js?v=20260527-cambridge"></script>
   </body>
 </html>
