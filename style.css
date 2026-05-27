@@ -380,6 +380,42 @@ dd {
   margin-bottom: 1rem;
 }
 
+.faq-list {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.faq-list article {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.faq-list .faq-intro {
+  background: var(--surface-soft);
+  grid-column: 1 / -1;
+}
+
+.faq-list dl {
+  margin: 0;
+}
+
+.faq-list dt {
+  color: var(--primary-dark);
+  margin-top: 0.75rem;
+  text-transform: none;
+}
+
+.faq-list dt:first-child {
+  margin-top: 0;
+}
+
+.faq-list dd {
+  color: var(--muted);
+  font-weight: 400;
+}
+
 .priority-group h3 {
   margin-bottom: 0.15rem;
 }
@@ -648,6 +684,7 @@ code {
   .intro,
   .student-summary,
   .subjects-list,
+  .faq-list,
   .info-grid,
   .metric-grid,
   .admin-filters,

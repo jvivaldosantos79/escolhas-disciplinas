@@ -110,13 +110,16 @@ const headerAuthEmail = document.querySelector("#header-auth-email");
 const profilePhoto = document.querySelector("#profile-photo");
 const headerSignOutButton = document.querySelector("#header-sign-out");
 const homeLink = document.querySelector("#home-link");
+const faqNav = document.querySelector("#faq-nav");
 const adminNav = document.querySelector("#admin-nav");
 const studentArea = document.querySelector("#student-area");
 const summaryArea = document.querySelector("#summary-area");
+const faqArea = document.querySelector("#faq-area");
 const summaryMessage = document.querySelector("#summary-message");
 const summaryTable = document.querySelector("#summary-table");
 const goHomeButton = document.querySelector("#go-home");
 const editChoiceButton = document.querySelector("#edit-choice");
+const faqBackButton = document.querySelector("#faq-back");
 const choiceStatus = document.querySelector("#choice-status");
 const choicesForm = document.querySelector("#choices-form");
 const standardChoices = document.querySelector("#standard-choices");
@@ -159,6 +162,7 @@ let supabaseInitPromise = null;
 let isAdminUser = false;
 let adminStudentsCache = [];
 let adminChoicesCache = [];
+let lastStudentView = "home";
 
 const loginRequest = {
   scopes: ["openid", "profile", "email", "User.Read"]
@@ -386,6 +390,11 @@ homeLink.addEventListener("click", async (event) => {
   await showHome();
 });
 
+faqNav.addEventListener("click", (event) => {
+  event.preventDefault();
+  showFaqPage();
+});
+
 goHomeButton.addEventListener("click", async () => {
   await showHome();
 });
@@ -401,6 +410,20 @@ editChoiceButton.addEventListener("click", () => {
 cancelEditButton.addEventListener("click", () => {
   if (currentChoice) {
     renderStudentArea(currentStudent, currentChoice);
+    showSummaryPage(currentChoice);
+    return;
+  }
+
+  showHome();
+});
+
+faqBackButton.addEventListener("click", () => {
+  if (lastStudentView === "editor") {
+    showChoiceEditor();
+    return;
+  }
+
+  if (currentChoice) {
     showSummaryPage(currentChoice);
     return;
   }
@@ -689,6 +712,7 @@ function setChoicesLocked(isLocked) {
 async function showHome() {
   studentArea.classList.add("hidden");
   summaryArea.classList.add("hidden");
+  faqArea.classList.add("hidden");
   document.querySelector("#entrada").classList.add("hidden");
 
   if (!signedInAccount) {
@@ -723,7 +747,9 @@ function showChoiceEditor() {
 
   document.querySelector("#entrada").classList.add("hidden");
   summaryArea.classList.add("hidden");
+  faqArea.classList.add("hidden");
   studentArea.classList.remove("hidden");
+  lastStudentView = "editor";
   cancelEditButton.classList.toggle("hidden", !currentChoice);
   setChoicesLocked(currentChoice?.estado === "bloqueada");
   updateValidation();
@@ -748,8 +774,10 @@ function showAdminTools() {
 
 function showSummaryPage(choice) {
   studentArea.classList.add("hidden");
+  faqArea.classList.add("hidden");
   document.querySelector("#entrada").classList.add("hidden");
   summaryArea.classList.remove("hidden");
+  lastStudentView = "summary";
   renderSummaryTable(choice);
 
   const isLocked = choice?.estado === "bloqueada";
@@ -761,6 +789,19 @@ function showSummaryPage(choice) {
 
   window.history.replaceState(null, "", "#resumo");
   summaryArea.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showFaqPage() {
+  if (!signedInAccount || isAdminUser) {
+    return;
+  }
+
+  studentArea.classList.add("hidden");
+  summaryArea.classList.add("hidden");
+  document.querySelector("#entrada").classList.add("hidden");
+  faqArea.classList.remove("hidden");
+  window.history.replaceState(null, "", "#faq");
+  faqArea.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderSummaryTable(choice) {
@@ -1571,6 +1612,7 @@ function updateAuthUi() {
   });
 
   adminNav.classList.toggle("hidden", !isAdmin);
+  faqNav.classList.toggle("hidden", !isSignedIn || isAdmin);
   headerSession.classList.toggle("hidden", !isSignedIn);
   signInButton.disabled = false;
 
@@ -1594,6 +1636,7 @@ function updateAuthUi() {
     profilePhoto.removeAttribute("src");
     studentArea.classList.add("hidden");
     summaryArea.classList.add("hidden");
+    faqArea.classList.add("hidden");
     document.querySelector("#admin").classList.add("hidden");
     document.querySelector("#admin-tools").classList.add("hidden");
     document.querySelector("#entrada").classList.add("hidden");
