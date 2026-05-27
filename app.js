@@ -55,7 +55,7 @@ const courseRules = {
     requiredGroupName: "opções específicas d",
     required: ["Biologia", "Física", "Química"],
     optional: [],
-    ruleText: "Indica se vais fazer exame de Maths em outubro. Se sim, escolhe Psychology, Economics ou ambas e seleciona uma disciplina adicional entre Biologia, Física ou Química. Se não, ficas inscrito automaticamente em Psychology e Economics."
+    ruleText: "Indica se vais fazer exame de Maths em outubro. Escolhe ou confirma Psychology e Economics e seleciona uma disciplina adicional entre Biologia, Física ou Química."
   },
   SocioeconomicasCambridge: {
     label: "Ciências Socioeconómicas Cambridge",
@@ -874,18 +874,26 @@ function updateCambridgeUi() {
   const selection = getCambridgeSelection();
   const mathsAnswered = selection.faz_maths_outubro !== null;
 
+  const isCtCambridge = rules.cambridgeType === "ct";
   cambridgeMainOptions.classList.toggle("hidden", !mathsAnswered || selection.faz_maths_outubro === false);
   cambridgeAutoMessage.classList.toggle("hidden", selection.faz_maths_outubro !== false);
+  cambridgeAutoMessage.textContent = isCtCambridge
+    ? "Ficas automaticamente inscrito em Psychology e Economics. Seleciona também uma opção d)."
+    : "Ficas automaticamente inscrito em Psychology e Economics.";
   cambridgeExtraOptions.classList.add("hidden");
   cambridgeExtraList.innerHTML = "";
 
-  if (!mathsAnswered || selection.faz_maths_outubro === false) {
+  if (!mathsAnswered) {
+    return;
+  }
+
+  if (selection.faz_maths_outubro === false && !isCtCambridge) {
     return;
   }
 
   const mainCount = Number(selection.psychology) + Number(selection.economics);
 
-  if (mainCount === 0) {
+  if (selection.faz_maths_outubro === true && mainCount === 0) {
     return;
   }
 
@@ -952,10 +960,33 @@ function validateCambridgeSelection(selection, courseKey) {
     };
   }
 
-  if (selection.faz_maths_outubro === false) {
+  if (selection.faz_maths_outubro === false && rules.cambridgeType !== "ct") {
     return {
       valid: true,
       message: "Escolha válida: ficas inscrito automaticamente em Psychology e Economics."
+    };
+  }
+
+  if (selection.faz_maths_outubro === false && rules.cambridgeType === "ct") {
+    const extraSubjects = getCambridgeExtraSubjects(rules, selection);
+
+    if (!selection.disciplina_extra) {
+      return {
+        valid: false,
+        message: "Escolha inválida: seleciona uma opção d) entre Biologia, Física ou Química."
+      };
+    }
+
+    if (!extraSubjects.includes(selection.disciplina_extra)) {
+      return {
+        valid: false,
+        message: "Escolha inválida: a opção d) selecionada não é permitida."
+      };
+    }
+
+    return {
+      valid: true,
+      message: "Escolha válida: Psychology e Economics ficam automáticos e a opção d) foi selecionada."
     };
   }
 
