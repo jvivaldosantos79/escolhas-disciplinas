@@ -321,6 +321,12 @@ select {
   color: var(--invalid);
 }
 
+.status-pill.pending {
+  background: #fff6db;
+  border-color: #e7cf86;
+  color: #765c12;
+}
+
 dt {
   color: var(--muted);
   font-size: 0.78rem;
@@ -564,6 +570,21 @@ dd {
 .admin-results {
   margin-top: 1rem;
   overflow-x: auto;
+}
+
+.admin-bulk-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.bulk-select {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+  margin: 0;
 }
 
 .admin-dashboard {

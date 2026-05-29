@@ -1897,7 +1897,7 @@ function renderFilteredAdminDashboard() {
   const filtered = getFilteredAdminData();
   renderAdminDashboard(filtered.students, filtered.choices);
   renderAdminStats(filtered.students, filtered.choices);
-  updateAdminResults(filtered.choices);
+  updateAdminResults(filtered.students, filtered.choices);
   csvOutput.value = buildChoicesCsv(filtered.choices) || "Sem resultados submetidos.";
 }
 
@@ -2316,7 +2316,7 @@ function createEmptyMessage(message) {
   return paragraph;
 }
 
-async function updateAdminResults(preloadedChoices = null) {
+async function updateAdminResults(preloadedStudents = null, preloadedChoices = null) {
   if (!adminResults) {
     return;
   }
@@ -2324,21 +2324,49 @@ async function updateAdminResults(preloadedChoices = null) {
   adminResults.textContent = "A carregar resultados...";
 
   try {
+    const studentsList = preloadedStudents || adminStudentsCache;
     const choices = preloadedChoices || await choiceRepository.getAll();
+    const choicesByAluno = new Map(choices.map((choice) => [String(choice.aluno_id), choice]));
+    const rows = studentsList.map((student) => ({
+      student,
+      choice: choicesByAluno.get(String(student.aluno_id)) || null
+    }));
 
-    if (choices.length === 0) {
-      adminResults.textContent = "Ainda não existem submissões.";
+    if (rows.length === 0) {
+      adminResults.textContent = "Não existem alunos para os filtros selecionados.";
       return;
     }
+
+    const wrapper = document.createElement("div");
+    const bulkActions = document.createElement("div");
+    bulkActions.className = "admin-bulk-actions";
+
+    const selectAllLabel = document.createElement("label");
+    selectAllLabel.className = "bulk-select";
+    selectAllLabel.innerHTML = `<input id="bulk-select-results" type="checkbox"> Selecionar submissões visíveis`;
+
+    const lockSelectedButton = document.createElement("button");
+    lockSelectedButton.type = "button";
+    lockSelectedButton.className = "secondary danger";
+    lockSelectedButton.textContent = "Bloquear selecionados";
+
+    const unlockSelectedButton = document.createElement("button");
+    unlockSelectedButton.type = "button";
+    unlockSelectedButton.className = "secondary";
+    unlockSelectedButton.textContent = "Desbloquear selecionados";
+
+    bulkActions.append(selectAllLabel, lockSelectedButton, unlockSelectedButton);
 
     const table = document.createElement("table");
     table.className = "results-table";
     table.innerHTML = `
       <thead>
         <tr>
+          <th>Selecionar</th>
           <th>Aluno</th>
           <th>Turma</th>
           <th>Curso</th>
+          <th>Situação</th>
           <th>Estado</th>
           <th>Ações</th>
         </tr>
@@ -2348,18 +2376,37 @@ async function updateAdminResults(preloadedChoices = null) {
 
     const tbody = table.querySelector("tbody");
 
-    choices.forEach((choice) => {
+    rows.forEach(({ student, choice }) => {
       const row = document.createElement("tr");
-      const isLocked = choice.estado === "bloqueada";
+      const submitted = Boolean(choice);
+      const isLocked = choice?.estado === "bloqueada";
+      const rowCourse = choice?.curso || student.curso;
       row.innerHTML = `
-        <td>${escapeHtml(choice.nome)}<br><small>${escapeHtml(choice.aluno_id)}</small></td>
-        <td>${escapeHtml(choice.turma)}</td>
-        <td>${escapeHtml(choice.curso)}</td>
-        <td><span class="status-pill ${isLocked ? "locked" : "editable"}">${isLocked ? "Bloqueada" : "Editável"}</span></td>
+        <td></td>
+        <td>${escapeHtml(student.nome)}<br><small>${escapeHtml(student.aluno_id)}</small></td>
+        <td>${escapeHtml(student.turma)}</td>
+        <td>${escapeHtml(getCourseLabel(rowCourse))}</td>
+        <td><span class="status-pill ${submitted ? "editable" : "pending"}">${submitted ? "Preencheu" : "Por preencher"}</span></td>
+        <td>${submitted ? `<span class="status-pill ${isLocked ? "locked" : "editable"}">${isLocked ? "Bloqueada" : "Editável"}</span>` : "-"}</td>
         <td></td>
       `;
 
+      const selectCell = row.querySelector("td:first-child");
       const actionCell = row.querySelector("td:last-child");
+
+      if (!submitted) {
+        actionCell.textContent = "-";
+        tbody.appendChild(row);
+        return;
+      }
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "admin-result-checkbox";
+      checkbox.value = String(choice.aluno_id);
+      checkbox.setAttribute("aria-label", `Selecionar ${student.nome}`);
+      selectCell.appendChild(checkbox);
+
       const button = document.createElement("button");
       button.type = "button";
       button.className = isLocked ? "secondary" : "secondary danger";
@@ -2380,10 +2427,58 @@ async function updateAdminResults(preloadedChoices = null) {
       tbody.appendChild(row);
     });
 
+    const submittedCheckboxes = () => Array.from(table.querySelectorAll(".admin-result-checkbox"));
+    const selectedAlunoIds = () => submittedCheckboxes().filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+    const setBulkButtonsState = () => {
+      const hasSelection = selectedAlunoIds().length > 0;
+      selectAllCheckbox.disabled = submittedCheckboxes().length === 0;
+      lockSelectedButton.disabled = !hasSelection;
+      unlockSelectedButton.disabled = !hasSelection;
+    };
+    const selectAllCheckbox = selectAllLabel.querySelector("input");
+    selectAllCheckbox.addEventListener("change", () => {
+      submittedCheckboxes().forEach((checkbox) => {
+        checkbox.checked = selectAllCheckbox.checked;
+      });
+      setBulkButtonsState();
+    });
+    table.addEventListener("change", (event) => {
+      if (!event.target.classList.contains("admin-result-checkbox")) {
+        return;
+      }
+
+      const checkboxes = submittedCheckboxes();
+      selectAllCheckbox.checked = checkboxes.length > 0 && checkboxes.every((checkbox) => checkbox.checked);
+      setBulkButtonsState();
+    });
+
+    lockSelectedButton.addEventListener("click", () => updateSelectedChoicesStatus(selectedAlunoIds(), "bloqueada"));
+    unlockSelectedButton.addEventListener("click", () => updateSelectedChoicesStatus(selectedAlunoIds(), "submetida"));
+    setBulkButtonsState();
+
     adminResults.innerHTML = "";
-    adminResults.appendChild(table);
+    wrapper.append(bulkActions, table);
+    adminResults.appendChild(wrapper);
   } catch (error) {
     adminResults.textContent = error.message;
+  }
+}
+
+async function updateSelectedChoicesStatus(alunoIds, estado) {
+  if (alunoIds.length === 0) {
+    return;
+  }
+
+  adminResults.setAttribute("aria-busy", "true");
+
+  try {
+    await Promise.all(alunoIds.map((alunoId) => choiceRepository.updateStatus(alunoId, estado)));
+    await updateAdminDashboard();
+    await updateCsvOutput();
+  } catch (error) {
+    adminResults.textContent = error.message;
+  } finally {
+    adminResults.removeAttribute("aria-busy");
   }
 }
 
