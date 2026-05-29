@@ -609,6 +609,32 @@ dd {
   margin-bottom: 0.75rem;
 }
 
+.stats-tabs {
+  display: grid;
+  gap: 1rem;
+}
+
+.stats-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.stats-tab {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.stats-tab.active {
+  background: var(--primary);
+  color: white;
+}
+
+.stats-tab-panel {
+  border-top: 0;
+  padding-top: 0.25rem;
+}
+
 .admin-table-wrap {
   overflow-x: auto;
 }

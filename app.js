@@ -1822,14 +1822,67 @@ function renderAdminStats(studentsList, choices) {
   const byCourse = buildCourseStats(studentsList, choices);
   const subjectStats = buildSubjectStats(choices);
   const subjectByCourse = buildSubjectStatsByCourse(choices);
+  const tabs = [
+    ["submissoes", "Submissões por curso", createCourseStatsTable(byCourse)],
+    ["pendentes", "Alunos por preencher", createPendingStudentsTable(pendingStudents)],
+    ["disciplinas", "Disciplinas mais escolhidas", createSubjectStatsTable(subjectStats)],
+    ["disciplinas-curso", "Disciplinas mais escolhidas por curso", createSubjectStatsByCourseTable(subjectByCourse)]
+  ];
 
   adminStatsDashboard.innerHTML = "";
-  adminStatsDashboard.append(
-    createAdminSection("Submissões por curso", createCourseStatsTable(byCourse)),
-    createAdminSection("Alunos por preencher", createPendingStudentsTable(pendingStudents)),
-    createAdminSection("Disciplinas mais escolhidas", createSubjectStatsTable(subjectStats)),
-    createAdminSection("Disciplinas mais escolhidas por curso", createSubjectStatsByCourseTable(subjectByCourse))
-  );
+  adminStatsDashboard.appendChild(createStatsTabs(tabs));
+}
+
+function createStatsTabs(tabs) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "stats-tabs";
+
+  const tabList = document.createElement("div");
+  tabList.className = "stats-tab-list";
+  tabList.setAttribute("role", "tablist");
+  tabList.setAttribute("aria-label", "Estatísticas disponíveis");
+
+  const panels = document.createElement("div");
+  panels.className = "stats-tab-panels";
+
+  tabs.forEach(([id, title, content], index) => {
+    const isActive = index === 0;
+    const tabId = `stats-tab-${id}`;
+    const panelId = `stats-panel-${id}`;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `stats-tab${isActive ? " active" : ""}`;
+    button.id = tabId;
+    button.textContent = title;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(isActive));
+    button.setAttribute("aria-controls", panelId);
+
+    const panel = createAdminSection(title, content);
+    panel.classList.add("stats-tab-panel");
+    panel.id = panelId;
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", tabId);
+    panel.classList.toggle("hidden", !isActive);
+
+    button.addEventListener("click", () => {
+      tabList.querySelectorAll(".stats-tab").forEach((tab) => {
+        tab.classList.toggle("active", tab === button);
+        tab.setAttribute("aria-selected", String(tab === button));
+      });
+
+      panels.querySelectorAll(".stats-tab-panel").forEach((item) => {
+        item.classList.toggle("hidden", item !== panel);
+      });
+    });
+
+    tabList.appendChild(button);
+    panels.appendChild(panel);
+  });
+
+  wrapper.append(tabList, panels);
+  return wrapper;
 }
 
 function renderFilteredAdminDashboard() {
