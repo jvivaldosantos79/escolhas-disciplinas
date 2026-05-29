@@ -589,6 +589,7 @@ dd {
   display: inline-flex;
   gap: 0.45rem;
   margin: 0;
+  white-space: nowrap;
 }
 
 .admin-dashboard {
@@ -600,7 +601,15 @@ dd {
 .metric-grid {
   display: grid;
   gap: 0.6rem;
-  grid-template-columns: repeat(5, minmax(110px, 140px));
+  grid-template-columns: repeat(5, minmax(105px, 135px));
+  justify-content: center;
+}
+
+.metrics-with-action {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   justify-content: center;
 }
 

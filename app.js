@@ -1802,7 +1802,9 @@ function renderAdminDashboard(studentsList, choices) {
   const editableCount = choices.length - lockedCount;
 
   adminDashboard.innerHTML = "";
-  adminDashboard.appendChild(
+  const dashboardRow = document.createElement("div");
+  dashboardRow.className = "metrics-with-action";
+  dashboardRow.appendChild(
     createMetricGrid([
       ["Alunos", studentsList.length],
       ["Submissões", choices.length],
@@ -1811,6 +1813,8 @@ function renderAdminDashboard(studentsList, choices) {
       ["Bloqueadas", lockedCount]
     ])
   );
+  dashboardRow.appendChild(refreshResultsButton);
+  adminDashboard.appendChild(dashboardRow);
 }
 
 function renderAdminStats(studentsList, choices) {
