@@ -1822,11 +1822,19 @@ function renderAdminStats(studentsList, choices) {
   const byCourse = buildCourseStats(studentsList, choices);
   const subjectStats = buildSubjectStats(choices);
   const subjectByCourse = buildSubjectStatsByCourse(choices);
+  const priorityStats = buildPrioritySubjectStats(choices);
+  const pairStats = buildPairStats(choices);
+  const pairStatsByPriority = buildPairStatsByPriority(choices);
+  const pairStatsByCourse = buildPairStatsByCourse(choices);
   const tabs = [
     ["submissoes", "Submissões por curso", createCourseStatsTable(byCourse)],
     ["pendentes", "Alunos por preencher", createPendingStudentsTable(pendingStudents)],
     ["disciplinas", "Disciplinas mais escolhidas", createSubjectStatsTable(subjectStats)],
-    ["disciplinas-curso", "Disciplinas mais escolhidas por curso", createSubjectStatsByCourseTable(subjectByCourse)]
+    ["disciplinas-curso", "Disciplinas mais escolhidas por curso", createSubjectStatsByCourseTable(subjectByCourse)],
+    ["prioridades", "Prioridades", createPrioritySubjectStatsTable(priorityStats)],
+    ["pares", "Pares escolhidos", createPairStatsTable(pairStats)],
+    ["pares-prioridade", "Pares por prioridade", createPairStatsByPriorityTable(pairStatsByPriority)],
+    ["pares-curso", "Pares por curso", createPairStatsByCourseTable(pairStatsByCourse)]
   ];
 
   adminStatsDashboard.innerHTML = "";
@@ -2088,6 +2096,109 @@ function buildSubjectStatsByCourse(choices) {
     );
 }
 
+function getNormalPriorityItems(choice) {
+  if (!Array.isArray(choice.prioridades)) {
+    return [];
+  }
+
+  return choice.prioridades
+    .filter((item) => Array.isArray(item.subjects) && item.subjects.filter(Boolean).length === 2)
+    .map((item) => ({
+      priority: Number(item.priority) || 0,
+      subjects: item.subjects.filter(Boolean)
+    }));
+}
+
+function normalizePairLabel(subjects) {
+  return [...subjects]
+    .sort((first, second) => first.localeCompare(second, "pt-PT"))
+    .join(" + ");
+}
+
+function buildPrioritySubjectStats(choices) {
+  const counts = new Map();
+
+  choices.forEach((choice) => {
+    getNormalPriorityItems(choice).forEach((item) => {
+      item.subjects.forEach((subject) => {
+        const key = `${item.priority}||${subject}`;
+        counts.set(key, {
+          priority: item.priority,
+          subject,
+          count: (counts.get(key)?.count || 0) + 1
+        });
+      });
+    });
+  });
+
+  return Array.from(counts.values()).sort((first, second) =>
+    first.priority - second.priority ||
+    second.count - first.count ||
+    first.subject.localeCompare(second.subject, "pt-PT")
+  );
+}
+
+function buildPairStats(choices) {
+  const counts = new Map();
+
+  choices.forEach((choice) => {
+    getNormalPriorityItems(choice).forEach((item) => {
+      const pair = normalizePairLabel(item.subjects);
+      counts.set(pair, (counts.get(pair) || 0) + 1);
+    });
+  });
+
+  return Array.from(counts.entries())
+    .map(([pair, count]) => ({ pair, count }))
+    .sort((first, second) => second.count - first.count || first.pair.localeCompare(second.pair, "pt-PT"));
+}
+
+function buildPairStatsByPriority(choices) {
+  const counts = new Map();
+
+  choices.forEach((choice) => {
+    getNormalPriorityItems(choice).forEach((item) => {
+      const pair = normalizePairLabel(item.subjects);
+      const key = `${item.priority}||${pair}`;
+      counts.set(key, {
+        priority: item.priority,
+        pair,
+        count: (counts.get(key)?.count || 0) + 1
+      });
+    });
+  });
+
+  return Array.from(counts.values()).sort((first, second) =>
+    first.priority - second.priority ||
+    second.count - first.count ||
+    first.pair.localeCompare(second.pair, "pt-PT")
+  );
+}
+
+function buildPairStatsByCourse(choices) {
+  const counts = new Map();
+
+  choices.forEach((choice) => {
+    const course = getCourseLabel(choice.curso);
+
+    getNormalPriorityItems(choice).forEach((item) => {
+      const pair = normalizePairLabel(item.subjects);
+      const key = `${course}||${pair}`;
+      counts.set(key, {
+        course,
+        pair,
+        count: (counts.get(key)?.count || 0) + 1
+      });
+    });
+  });
+
+  return Array.from(counts.values()).sort((first, second) =>
+    first.course.localeCompare(second.course, "pt-PT") ||
+    second.count - first.count ||
+    first.pair.localeCompare(second.pair, "pt-PT")
+  );
+}
+
 function createCourseStatsTable(rows) {
   if (rows.length === 0) {
     return createEmptyMessage("Sem alunos registados.");
@@ -2131,6 +2242,50 @@ function createSubjectStatsByCourseTable(rows) {
   return createTable(
     ["Curso", "Disciplina", "Ocorrências"],
     rows.map((row) => [row.course, row.subject, row.count])
+  );
+}
+
+function createPrioritySubjectStatsTable(rows) {
+  if (rows.length === 0) {
+    return createEmptyMessage("Ainda não existem prioridades registadas nos cursos com prioridades.");
+  }
+
+  return createTable(
+    ["Prioridade", "Disciplina", "Ocorrências"],
+    rows.map((row) => [`Prioridade ${row.priority}`, row.subject, row.count])
+  );
+}
+
+function createPairStatsTable(rows) {
+  if (rows.length === 0) {
+    return createEmptyMessage("Ainda não existem pares registados nos cursos com prioridades.");
+  }
+
+  return createTable(
+    ["Par de disciplinas", "Ocorrências"],
+    rows.map((row) => [row.pair, row.count])
+  );
+}
+
+function createPairStatsByPriorityTable(rows) {
+  if (rows.length === 0) {
+    return createEmptyMessage("Ainda não existem pares por prioridade registados.");
+  }
+
+  return createTable(
+    ["Prioridade", "Par de disciplinas", "Ocorrências"],
+    rows.map((row) => [`Prioridade ${row.priority}`, row.pair, row.count])
+  );
+}
+
+function createPairStatsByCourseTable(rows) {
+  if (rows.length === 0) {
+    return createEmptyMessage("Ainda não existem pares por curso registados.");
+  }
+
+  return createTable(
+    ["Curso", "Par de disciplinas", "Ocorrências"],
+    rows.map((row) => [row.course, row.pair, row.count])
   );
 }
 
