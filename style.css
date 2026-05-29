@@ -306,7 +306,11 @@ select {
   display: inline-flex;
   font-size: 0.85rem;
   font-weight: 800;
+  justify-content: center;
+  min-width: 6.75rem;
   padding: 0.4rem 0.7rem;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .status-pill.editable {
@@ -660,6 +664,21 @@ dd {
   overflow-x: auto;
 }
 
+.admin-table-block {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.table-tools {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.table-tools input {
+  max-width: 360px;
+  width: 100%;
+}
+
 .results-table {
   border-collapse: collapse;
   min-width: 760px;
@@ -674,10 +693,37 @@ dd {
   vertical-align: middle;
 }
 
+.results-table th:nth-last-child(-n + 3),
+.results-table td:nth-last-child(-n + 3) {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.results-table td:last-child {
+  min-width: 130px;
+}
+
 .results-table th {
   color: var(--muted);
   font-size: 0.78rem;
   text-transform: uppercase;
+}
+
+.table-sort {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: inherit;
+  text-transform: inherit;
+}
+
+.table-sort::after {
+  content: "↕";
+  font-size: 0.7rem;
+  margin-left: 0.35rem;
+  opacity: 0.65;
 }
 
 .results-table small {

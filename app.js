@@ -499,6 +499,7 @@ adminFiltersForm.addEventListener("input", () => {
 });
 
 adminFiltersForm.addEventListener("change", () => {
+  updateClassFilterOptionsForSelectedCourse();
   renderFilteredAdminDashboard();
 });
 
@@ -1969,8 +1970,17 @@ function updateAdminFilterOptions(studentsList) {
   const currentCourse = filterCourse.value;
   const currentClass = filterClass.value;
   fillSelectOptions(filterCourse, uniqueSorted(studentsList.map((student) => getCourseLabel(student.curso))));
-  fillSelectOptions(filterClass, uniqueSorted(studentsList.map((student) => student.turma)));
   filterCourse.value = Array.from(filterCourse.options).some((option) => option.value === currentCourse) ? currentCourse : "";
+  updateClassFilterOptionsForSelectedCourse(currentClass);
+}
+
+function updateClassFilterOptionsForSelectedCourse(preferredClass = filterClass.value) {
+  const selectedCourse = filterCourse.value;
+  const availableStudents = selectedCourse
+    ? adminStudentsCache.filter((student) => getCourseLabel(student.curso) === selectedCourse)
+    : adminStudentsCache;
+  fillSelectOptions(filterClass, uniqueSorted(availableStudents.map((student) => student.turma)));
+  const currentClass = preferredClass;
   filterClass.value = Array.from(filterClass.options).some((option) => option.value === currentClass) ? currentClass : "";
 }
 
@@ -2054,7 +2064,9 @@ function buildSubjectStats(choices) {
   const counts = new Map();
 
   choices.forEach((choice) => {
-    getPrioritySubjectsForExport(choice).forEach((subject) => {
+    const uniqueSubjects = new Set(getPrioritySubjectsForExport(choice).filter(Boolean));
+
+    uniqueSubjects.forEach((subject) => {
       if (!subject) {
         return;
       }
@@ -2073,8 +2085,9 @@ function buildSubjectStatsByCourse(choices) {
 
   choices.forEach((choice) => {
     const course = getCourseLabel(choice.curso);
+    const uniqueSubjects = new Set(getPrioritySubjectsForExport(choice).filter(Boolean));
 
-    getPrioritySubjectsForExport(choice).forEach((subject) => {
+    uniqueSubjects.forEach((subject) => {
       if (!subject) {
         return;
       }
@@ -2229,7 +2242,7 @@ function createSubjectStatsTable(rows) {
   }
 
   return createTable(
-    ["Disciplina", "Ocorrências"],
+    ["Disciplina", "Alunos"],
     rows.map((row) => [row.subject, row.count])
   );
 }
@@ -2240,7 +2253,7 @@ function createSubjectStatsByCourseTable(rows) {
   }
 
   return createTable(
-    ["Curso", "Disciplina", "Ocorrências"],
+    ["Curso", "Disciplina", "Alunos"],
     rows.map((row) => [row.course, row.subject, row.count])
   );
 }
@@ -2291,22 +2304,85 @@ function createPairStatsByCourseTable(rows) {
 
 function createTable(headers, rows) {
   const wrapper = document.createElement("div");
-  wrapper.className = "admin-table-wrap";
+  wrapper.className = "admin-table-block";
+
+  const tools = document.createElement("div");
+  tools.className = "table-tools";
+
+  const search = document.createElement("input");
+  search.type = "search";
+  search.placeholder = "Filtrar nesta tabela";
+  search.setAttribute("aria-label", "Filtrar nesta tabela");
+  tools.appendChild(search);
+
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "admin-table-wrap";
   const table = document.createElement("table");
   table.className = "results-table";
   const thead = document.createElement("thead");
   const tbody = document.createElement("tbody");
+  let currentRows = [...rows];
+  let sortIndex = null;
+  let sortDirection = "asc";
 
-  thead.innerHTML = `<tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>`;
-  rows.forEach((row) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("");
-    tbody.appendChild(tr);
+  const headerRow = document.createElement("tr");
+  headers.forEach((header, index) => {
+    const th = document.createElement("th");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "table-sort";
+    button.textContent = header;
+    button.setAttribute("aria-label", `Ordenar por ${header}`);
+    button.addEventListener("click", () => {
+      if (sortIndex === index) {
+        sortDirection = sortDirection === "asc" ? "desc" : "asc";
+      } else {
+        sortIndex = index;
+        sortDirection = "asc";
+      }
+
+      renderTableRows();
+    });
+    th.appendChild(button);
+    headerRow.appendChild(th);
   });
+  thead.appendChild(headerRow);
+
+  search.addEventListener("input", renderTableRows);
+
+  function renderTableRows() {
+    const query = search.value.trim().toLowerCase();
+    currentRows = rows.filter((row) => row.join(" ").toLowerCase().includes(query));
+
+    if (sortIndex !== null) {
+      currentRows.sort((first, second) => compareTableValues(first[sortIndex], second[sortIndex], sortDirection));
+    }
+
+    tbody.innerHTML = "";
+    currentRows.forEach((row) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("");
+      tbody.appendChild(tr);
+    });
+  }
+
+  renderTableRows();
 
   table.append(thead, tbody);
-  wrapper.appendChild(table);
+  tableWrap.appendChild(table);
+  wrapper.append(tools, tableWrap);
   return wrapper;
+}
+
+function compareTableValues(firstValue, secondValue, direction) {
+  const firstNumber = Number(firstValue);
+  const secondNumber = Number(secondValue);
+  const bothNumeric = Number.isFinite(firstNumber) && Number.isFinite(secondNumber);
+  const result = bothNumeric
+    ? firstNumber - secondNumber
+    : String(firstValue).localeCompare(String(secondValue), "pt-PT", { numeric: true, sensitivity: "base" });
+
+  return direction === "asc" ? result : -result;
 }
 
 function createEmptyMessage(message) {
