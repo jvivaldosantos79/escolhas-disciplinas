@@ -2841,7 +2841,7 @@ async function updateSelectedStudentsProcessStatus(alunoIds, estado, triggerButt
     alunoIds.forEach((alunoId) => {
       adminStudentStatusesCache.set(String(alunoId), estado);
     });
-    renderFilteredAdminDashboard();
+    await updateAdminDashboard();
 
     if (messageElement) {
       messageElement.className = "message success";
