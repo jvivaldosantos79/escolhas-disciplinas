@@ -2550,7 +2550,7 @@ async function updateAdminResults(preloadedStudents = null, preloadedChoices = n
     }));
 
     if (rows.length === 0) {
-      adminResults.textContent = "Não existem alunos para os filtros selecionados.";
+      adminResults.textContent = "Não existem alunos para os filtros selecionados. Ajusta os filtros ou clica em Limpar filtros para voltar à lista completa.";
       return;
     }
 
@@ -2968,7 +2968,7 @@ function escapeCsvValue(value) {
 }
 
 function escapeHtml(value) {
-  return String(value || "")
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
