@@ -2814,13 +2814,17 @@ async function updateSelectedStudentsProcessStatus(alunoIds, estado, triggerButt
 
   try {
     await Promise.all(alunoIds.map((alunoId) => studentStatusRepository.updateStatus(alunoId, estado)));
+    alunoIds.forEach((alunoId) => {
+      adminStudentStatusesCache.set(String(alunoId), estado);
+    });
+    renderFilteredAdminDashboard();
+
     if (messageElement) {
       messageElement.className = "message success";
       messageElement.textContent = estado === "nao_renova"
         ? "Aluno(s) marcado(s) como não renovam."
         : "Aluno(s) reativado(s).";
     }
-    await updateAdminDashboard();
     await updateCsvOutput();
   } catch (error) {
     const message = error.message || "Não foi possível guardar a alteração.";
