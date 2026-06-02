@@ -429,7 +429,7 @@ const studentStatusRepository = {
       .upsert(payload, { onConflict: "aluno_id" });
 
     if (error) {
-      throw new Error("Não foi possível atualizar o estado administrativo do aluno.");
+      throw new Error(`Não foi possível atualizar o estado administrativo do aluno: ${error.message}`);
     }
   }
 };
@@ -2531,6 +2531,11 @@ async function updateAdminResults(preloadedStudents = null, preloadedChoices = n
     }
 
     const wrapper = document.createElement("div");
+    const adminActionMessage = document.createElement("p");
+    adminActionMessage.className = "message hidden";
+    adminActionMessage.setAttribute("role", "status");
+    adminActionMessage.setAttribute("aria-live", "polite");
+
     const bulkActions = document.createElement("div");
     bulkActions.className = "admin-bulk-actions";
 
@@ -2681,7 +2686,7 @@ async function updateAdminResults(preloadedStudents = null, preloadedChoices = n
         reactivateButton.className = "secondary";
         reactivateButton.textContent = "Reativar";
         reactivateButton.addEventListener("click", async () => {
-          await updateStudentProcessStatus(student.aluno_id, "ativo");
+          await updateStudentProcessStatus(student.aluno_id, "ativo", reactivateButton, adminActionMessage);
         });
         actionCell.appendChild(reactivateButton);
         tbody.appendChild(row);
@@ -2710,7 +2715,7 @@ async function updateAdminResults(preloadedStudents = null, preloadedChoices = n
       notRenewingButton.className = "secondary";
       notRenewingButton.textContent = "Não renova";
       notRenewingButton.addEventListener("click", async () => {
-        await updateStudentProcessStatus(student.aluno_id, "nao_renova");
+        await updateStudentProcessStatus(student.aluno_id, "nao_renova", notRenewingButton, adminActionMessage);
       });
 
       if (submitted) {
@@ -2755,12 +2760,12 @@ async function updateAdminResults(preloadedStudents = null, preloadedChoices = n
 
     lockSelectedButton.addEventListener("click", () => updateSelectedChoicesStatus(selectedSubmittedAlunoIds(), "bloqueada"));
     unlockSelectedButton.addEventListener("click", () => updateSelectedChoicesStatus(selectedSubmittedAlunoIds(), "submetida"));
-    markNotRenewingButton.addEventListener("click", () => updateSelectedStudentsProcessStatus(selectedAlunoIds(), "nao_renova"));
-    reactivateStudentsButton.addEventListener("click", () => updateSelectedStudentsProcessStatus(selectedAlunoIds(), "ativo"));
+    markNotRenewingButton.addEventListener("click", () => updateSelectedStudentsProcessStatus(selectedAlunoIds(), "nao_renova", markNotRenewingButton, adminActionMessage));
+    reactivateStudentsButton.addEventListener("click", () => updateSelectedStudentsProcessStatus(selectedAlunoIds(), "ativo", reactivateStudentsButton, adminActionMessage));
     setBulkButtonsState();
 
     adminResults.innerHTML = "";
-    wrapper.append(bulkActions, table);
+    wrapper.append(adminActionMessage, bulkActions, table);
     adminResults.appendChild(wrapper);
   } catch (error) {
     adminResults.textContent = error.message;
@@ -2785,24 +2790,53 @@ async function updateSelectedChoicesStatus(alunoIds, estado) {
   }
 }
 
-async function updateStudentProcessStatus(alunoId, estado) {
-  await updateSelectedStudentsProcessStatus([alunoId], estado);
+async function updateStudentProcessStatus(alunoId, estado, triggerButton = null, messageElement = null) {
+  await updateSelectedStudentsProcessStatus([alunoId], estado, triggerButton, messageElement);
 }
 
-async function updateSelectedStudentsProcessStatus(alunoIds, estado) {
+async function updateSelectedStudentsProcessStatus(alunoIds, estado, triggerButton = null, messageElement = null) {
   if (alunoIds.length === 0) {
     return;
   }
 
+  const originalText = triggerButton?.textContent;
   adminResults.setAttribute("aria-busy", "true");
+
+  if (triggerButton) {
+    triggerButton.disabled = true;
+    triggerButton.textContent = "A guardar...";
+  }
+
+  if (messageElement) {
+    messageElement.className = "message";
+    messageElement.textContent = "A guardar alteração...";
+  }
 
   try {
     await Promise.all(alunoIds.map((alunoId) => studentStatusRepository.updateStatus(alunoId, estado)));
+    if (messageElement) {
+      messageElement.className = "message success";
+      messageElement.textContent = estado === "nao_renova"
+        ? "Aluno(s) marcado(s) como não renovam."
+        : "Aluno(s) reativado(s).";
+    }
     await updateAdminDashboard();
     await updateCsvOutput();
   } catch (error) {
-    adminResults.textContent = error.message;
+    const message = error.message || "Não foi possível guardar a alteração.";
+
+    if (messageElement) {
+      messageElement.className = "message warning";
+      messageElement.textContent = message;
+    }
+
+    window.alert(message);
   } finally {
+    if (triggerButton) {
+      triggerButton.disabled = false;
+      triggerButton.textContent = originalText;
+    }
+
     adminResults.removeAttribute("aria-busy");
   }
 }
