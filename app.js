@@ -1,5 +1,7 @@
 const DATA_SOURCE = "alunos.csv";
 const STORAGE_KEY = "escolhas12ano.resultados";
+const CURRENT_PROCESS_ID = "12_opcionais";
+const CURRENT_PROCESS_YEAR = "12";
 const SUPABASE_URL = "https://rygyxkcgvimvommdnuiw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_RVB9XvY8C7qLzbxvGc7E-A_ch_FCYH6";
 const SUPABASE_MODULE_URLS = [
@@ -186,7 +188,8 @@ const studentRepository = {
     if (client) {
       const { data, error } = await client
         .from("alunos")
-        .select("aluno_id,nome,turma,curso,email")
+        .select("aluno_id,nome,turma,curso,email,processo_id,ano")
+        .eq("processo_id", CURRENT_PROCESS_ID)
         .order("turma", { ascending: true })
         .order("nome", { ascending: true });
 
@@ -211,8 +214,9 @@ const studentRepository = {
     if (client) {
       const { data, error } = await client
         .from("alunos")
-        .select("aluno_id,nome,turma,curso,email")
+        .select("aluno_id,nome,turma,curso,email,processo_id,ano")
         .eq("aluno_id", studentId)
+        .eq("processo_id", CURRENT_PROCESS_ID)
         .maybeSingle();
 
       if (error) {
@@ -226,7 +230,7 @@ const studentRepository = {
       students = await this.getAll();
     }
 
-    return students.find((student) => student.aluno_id === studentId);
+    return students.find((student) => student.aluno_id === studentId && getProcessId(student) === CURRENT_PROCESS_ID);
   },
 
   async findByEmail(email) {
@@ -236,8 +240,9 @@ const studentRepository = {
     if (client) {
       const { data, error } = await client
         .from("alunos")
-        .select("aluno_id,nome,turma,curso,email")
+        .select("aluno_id,nome,turma,curso,email,processo_id,ano")
         .eq("email", normalizedEmail)
+        .eq("processo_id", CURRENT_PROCESS_ID)
         .maybeSingle();
 
       if (error) {
@@ -251,7 +256,7 @@ const studentRepository = {
       students = await this.getAll();
     }
 
-    return students.find((student) => (student.email || "").toLowerCase() === normalizedEmail) || null;
+    return students.find((student) => (student.email || "").toLowerCase() === normalizedEmail && getProcessId(student) === CURRENT_PROCESS_ID) || null;
   }
 };
 
@@ -264,6 +269,7 @@ const choiceRepository = {
         .from("escolhas")
         .select("*")
         .eq("aluno_id", String(alunoId))
+        .eq("processo_id", CURRENT_PROCESS_ID)
         .maybeSingle();
 
       if (error) {
@@ -274,7 +280,7 @@ const choiceRepository = {
     }
 
     const choices = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return choices.find((choice) => choice.aluno_id === String(alunoId)) || null;
+    return choices.find((choice) => choice.aluno_id === String(alunoId) && getProcessId(choice) === CURRENT_PROCESS_ID) || null;
   },
 
   async getAll() {
@@ -284,6 +290,7 @@ const choiceRepository = {
       const { data, error } = await client
         .from("escolhas")
         .select("*")
+        .eq("processo_id", CURRENT_PROCESS_ID)
         .order("submetido_em", { ascending: false });
 
       if (error) {
@@ -293,7 +300,8 @@ const choiceRepository = {
       return data.map(mapChoiceFromDatabase);
     }
 
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]")
+      .filter((choice) => getProcessId(choice) === CURRENT_PROCESS_ID);
   },
 
   async save(choice) {
@@ -537,6 +545,8 @@ choicesForm.addEventListener("submit", async (event) => {
     nome: currentStudent.nome,
     turma: currentStudent.turma,
     curso: currentStudent.curso,
+    processo_id: getProcessId(currentStudent),
+    ano: getProcessYear(currentStudent),
     autenticado_com: getSignedInEmail(),
     prioridades: priorities,
     cambridge,
@@ -1500,8 +1510,18 @@ function normalizeStudent(student) {
     nome: student.nome || "",
     turma: student.turma || "",
     curso: student.curso || "",
-    email: student.email || ""
+    email: student.email || "",
+    processo_id: getProcessId(student),
+    ano: getProcessYear(student)
   };
+}
+
+function getProcessId(record) {
+  return record?.processo_id || CURRENT_PROCESS_ID;
+}
+
+function getProcessYear(record) {
+  return record?.ano || CURRENT_PROCESS_YEAR;
 }
 
 function mapChoiceToDatabase(choice, existingChoice = null) {
@@ -1514,6 +1534,8 @@ function mapChoiceToDatabase(choice, existingChoice = null) {
     nome: choice.nome,
     turma: choice.turma,
     curso: choice.curso,
+    processo_id: getProcessId(choice),
+    ano: getProcessYear(choice),
     email_autenticado: choice.autenticado_com,
     prioridade_1_disciplina_1: prioritySubjects[0] || "",
     prioridade_1_disciplina_2: prioritySubjects[1] || "",
@@ -1543,6 +1565,8 @@ function mapChoiceFromDatabase(row) {
     nome: row.nome,
     turma: row.turma,
     curso: row.curso,
+    processo_id: getProcessId(row),
+    ano: getProcessYear(row),
     autenticado_com: row.email_autenticado,
     prioridades: [
       {
@@ -2856,6 +2880,8 @@ function buildChoicesCsv(choices) {
       "nome",
       "turma",
       "curso",
+      "processo_id",
+      "ano",
       "autenticado_com",
       "prioridade_1_disciplina_1",
       "prioridade_1_disciplina_2",
@@ -2878,6 +2904,8 @@ function buildChoicesCsv(choices) {
         choice.nome,
         choice.turma,
         choice.curso,
+        getProcessId(choice),
+        getProcessYear(choice),
         choice.autenticado_com || "",
         ...prioritySubjects,
         choice.cambridge?.faz_maths_outubro ?? "",
