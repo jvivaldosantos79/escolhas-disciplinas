@@ -1,7 +1,24 @@
 const DATA_SOURCE = "alunos.csv";
 const STORAGE_KEY = "escolhas12ano.resultados";
 const CURRENT_PROCESS_ID = "12_opcionais";
-const CURRENT_PROCESS_YEAR = "12";
+const processesConfig = {
+  "12_opcionais": {
+    year: "12",
+    title: "Escolhas de disciplinas do 12.º ano",
+    mode: "12-opcionais",
+    storageKey: "escolhas12ano.resultados",
+    downloadName: "escolhas-12ano.csv"
+  },
+  "10_escolhas": {
+    year: "10",
+    title: "Escolha de curso do 10.º ano",
+    mode: "10-curso",
+    storageKey: "escolhas10ano.resultados",
+    downloadName: "escolhas-10ano.csv"
+  }
+};
+const CURRENT_PROCESS = processesConfig[CURRENT_PROCESS_ID] || processesConfig["12_opcionais"];
+const CURRENT_PROCESS_YEAR = CURRENT_PROCESS.year;
 const SUPABASE_URL = "https://rygyxkcgvimvommdnuiw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_RVB9XvY8C7qLzbxvGc7E-A_ch_FCYH6";
 const SUPABASE_MODULE_URLS = [
@@ -109,6 +126,51 @@ const courseAliases = {
   Socioeconomicas: "Socioeconomicas",
   LinguasHumanidades: "LinguasHumanidades",
   ArtesVisuais: "ArtesVisuais"
+};
+
+const tenthGradeCourses = {
+  CienciasTecnologias: {
+    label: "Ciências e Tecnologias",
+    cambridge: false,
+    automaticSubjects: ["Física e Química A"],
+    optionSubjects: ["Biologia e Geologia", "Geometria Descritiva A"],
+    ruleText: "Ficas inscrito em Física e Química A e escolhes uma disciplina entre Biologia e Geologia e Geometria Descritiva A."
+  },
+  CienciasTecnologiasCambridge: {
+    label: "Ciências e Tecnologias Cambridge",
+    cambridge: true,
+    automaticSubjects: ["Física e Química A"],
+    optionSubjects: ["Biologia e Geologia", "Geometria Descritiva A"],
+    ruleText: "Ficas inscrito em Física e Química A e escolhes uma disciplina entre Biologia e Geologia e Geometria Descritiva A. O percurso Cambridge fica sujeito a validação pelo Colégio, quando aplicável."
+  },
+  Socioeconomicas: {
+    label: "Ciências Socioeconómicas",
+    cambridge: false,
+    automaticSubjects: ["Economia A", "Geografia A"],
+    optionSubjects: [],
+    ruleText: "Ficas inscrito automaticamente em Economia A e Geografia A."
+  },
+  SocioeconomicasCambridge: {
+    label: "Ciências Socioeconómicas Cambridge",
+    cambridge: true,
+    automaticSubjects: ["Economia A", "Geografia A"],
+    optionSubjects: [],
+    ruleText: "Ficas inscrito automaticamente em Economia A e Geografia A. O percurso Cambridge fica sujeito a validação pelo Colégio, quando aplicável."
+  },
+  LinguasHumanidades: {
+    label: "Línguas e Humanidades",
+    cambridge: false,
+    automaticSubjects: ["Geografia A", "MACS"],
+    optionSubjects: [],
+    ruleText: "Ficas inscrito automaticamente em Geografia A e MACS."
+  },
+  ArtesVisuais: {
+    label: "Artes Visuais",
+    cambridge: false,
+    automaticSubjects: ["Desenho A", "História e Cultura das Artes"],
+    optionSubjects: [],
+    ruleText: "Ficas inscrito automaticamente em Desenho A e História e Cultura das Artes."
+  }
 };
 
 const loginMessage = document.querySelector("#login-message");
