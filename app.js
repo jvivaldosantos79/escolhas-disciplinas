@@ -303,29 +303,46 @@ const studentRepository = {
   },
 
   async findByEmail(email) {
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
     const client = await ensureSupabaseReady();
 
     if (client) {
       const { data, error } = await client
         .from("alunos")
         .select("aluno_id,nome,turma,curso,email,processo_id,ano")
-        .eq("email", normalizedEmail)
         .eq("processo_id", CURRENT_PROCESS_ID)
-        .maybeSingle();
+        .ilike("email", normalizedEmail);
 
       if (error) {
         throw new Error("Não foi possível validar os dados do aluno.");
       }
 
-      return data ? normalizeStudent(data) : null;
+      const directMatch = Array.isArray(data)
+        ? data.find((student) => normalizeEmail(student.email) === normalizedEmail)
+        : null;
+
+      if (directMatch) {
+        return normalizeStudent(directMatch);
+      }
+
+      const { data: processStudents, error: processError } = await client
+        .from("alunos")
+        .select("aluno_id,nome,turma,curso,email,processo_id,ano")
+        .eq("processo_id", CURRENT_PROCESS_ID);
+
+      if (processError) {
+        throw new Error("Não foi possível validar os dados do aluno.");
+      }
+
+      const fallbackMatch = (processStudents || []).find((student) => normalizeEmail(student.email) === normalizedEmail);
+      return fallbackMatch ? normalizeStudent(fallbackMatch) : null;
     }
 
     if (students.length === 0) {
       students = await this.getAll();
     }
 
-    return students.find((student) => (student.email || "").toLowerCase() === normalizedEmail && getProcessId(student) === CURRENT_PROCESS_ID) || null;
+    return students.find((student) => normalizeEmail(student.email) === normalizedEmail && getProcessId(student) === CURRENT_PROCESS_ID) || null;
   }
 };
 
@@ -738,7 +755,7 @@ async function loadSignedInStudent(options = {}) {
     const student = await studentRepository.findByEmail(getSignedInEmail());
 
     if (!student) {
-      showLoginError("Não foi encontrado um aluno associado à tua conta Microsoft 365. Contacta a secretaria ou a administração.");
+      showLoginError(`Não foi encontrado um aluno associado à tua conta Microsoft 365 (${getSignedInEmail()}). Confirma se este email está registado na tabela alunos para o processo ${CURRENT_PROCESS_ID}.`);
       return;
     }
 
@@ -2137,6 +2154,10 @@ function getSignedInEmail() {
     signedInAccount.idTokenClaims?.email ||
     ""
   ).toLowerCase();
+}
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
 }
 
 function getSignedInDisplayName() {
