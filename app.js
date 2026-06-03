@@ -1,5 +1,5 @@
 const DATA_SOURCE = "alunos.csv";
-const CURRENT_PROCESS_ID = "12_opcionais";
+const CURRENT_PROCESS_ID = "10_escolhas";
 const processesConfig = {
   "12_opcionais": {
     year: "12",
@@ -167,9 +167,9 @@ const tenthGradeCourses = {
   ArtesVisuais: {
     label: "Artes Visuais",
     cambridge: false,
-    automaticSubjects: ["Desenho A", "História e Cultura das Artes"],
+    automaticSubjects: ["Desenho A", "História e Cultura das Artes", "Geometria Descritiva A"],
     optionSubjects: [],
-    ruleText: "Ficas inscrito automaticamente em Desenho A e História e Cultura das Artes."
+    ruleText: "Ficas inscrito automaticamente em Desenho A, História e Cultura das Artes e Geometria Descritiva A."
   }
 };
 
