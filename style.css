@@ -638,6 +638,36 @@ dd {
   justify-content: center;
 }
 
+.process-banner {
+  align-items: stretch;
+  background: #f7fbfb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(90px, 0.35fr) minmax(100px, 0.35fr);
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+}
+
+.process-banner div {
+  border-left: 3px solid var(--primary);
+  padding-left: 0.75rem;
+}
+
+.process-banner span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.process-banner strong {
+  display: block;
+  margin-top: 0.2rem;
+}
+
 .metrics-with-action {
   align-items: center;
   display: flex;
@@ -829,6 +859,7 @@ code {
   .info-grid,
   .metric-grid,
   .admin-filters,
+  .process-banner,
   .filter-row-selects,
   .filter-row-search {
     grid-template-columns: 1fr;
@@ -842,5 +873,39 @@ code {
 
   .topbar nav {
     gap: 0.6rem;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  nav,
+  footer,
+  .summary-actions,
+  #autenticacao,
+  #entrada,
+  #student-area,
+  #faq-area,
+  .admin {
+    display: none !important;
+  }
+
+  .topbar,
+  .panel {
+    box-shadow: none;
+  }
+
+  .topbar {
+    border-bottom: 1px solid #d8e2e7;
+  }
+
+  main {
+    margin: 1rem auto;
+  }
+
+  #summary-area {
+    display: block !important;
   }
 }

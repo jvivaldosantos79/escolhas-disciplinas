@@ -192,6 +192,7 @@ const faqArea = document.querySelector("#faq-area");
 const summaryMessage = document.querySelector("#summary-message");
 const summaryTable = document.querySelector("#summary-table");
 const goHomeButton = document.querySelector("#go-home");
+const printSummaryButton = document.querySelector("#print-summary");
 const editChoiceButton = document.querySelector("#edit-choice");
 const faqBackButton = document.querySelector("#faq-back");
 const choiceStatus = document.querySelector("#choice-status");
@@ -600,6 +601,10 @@ goHomeButton.addEventListener("click", async () => {
   await showHome();
 });
 
+printSummaryButton.addEventListener("click", () => {
+  window.print();
+});
+
 editChoiceButton.addEventListener("click", () => {
   if (!currentStudent) {
     return;
@@ -787,7 +792,7 @@ downloadCsvButton.addEventListener("click", async () => {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = CURRENT_PROCESS.downloadName;
+  link.download = getExportFilename();
   link.click();
   URL.revokeObjectURL(link.href);
 });
@@ -1398,6 +1403,14 @@ function renderSummaryTable(choice) {
       <dd>${escapeHtml(choice.turma)}</dd>
     </div>
     <div>
+      <dt>Processo</dt>
+      <dd>${escapeHtml(CURRENT_PROCESS.title)}</dd>
+    </div>
+    <div>
+      <dt>Submetido em</dt>
+      <dd>${escapeHtml(formatDateTime(choice.submetido_em))}</dd>
+    </div>
+    <div>
       <dt>Estado</dt>
       <dd>${choice.estado === "bloqueada" ? "Bloqueada" : "Editável"}</dd>
     </div>
@@ -1808,6 +1821,23 @@ function formatCambridgeType(type) {
   };
 
   return labels[type] || type || "Nacional";
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("pt-PT", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(date);
 }
 
 function findOverusedRequiredSubject(priorities, courseKey) {
@@ -2392,11 +2422,33 @@ function renderAdminDashboard(studentsList, choices) {
   }
 
   adminDashboard.innerHTML = "";
+  adminDashboard.appendChild(createAdminProcessBanner());
   const dashboardRow = document.createElement("div");
   dashboardRow.className = "metrics-with-action";
   dashboardRow.appendChild(createMetricGrid(metrics));
   dashboardRow.appendChild(refreshResultsButton);
   adminDashboard.appendChild(dashboardRow);
+}
+
+function createAdminProcessBanner() {
+  const processInfo = activeProcessesCache.find((process) => process.id === CURRENT_PROCESS_ID);
+  const banner = document.createElement("section");
+  banner.className = "process-banner";
+  banner.innerHTML = `
+    <div>
+      <span>Processo em consulta</span>
+      <strong>${escapeHtml(processInfo?.nome || CURRENT_PROCESS.title)}</strong>
+    </div>
+    <div>
+      <span>Ano</span>
+      <strong>${escapeHtml(processInfo?.ano || CURRENT_PROCESS_YEAR)}</strong>
+    </div>
+    <div>
+      <span>Estado</span>
+      <strong>${processInfo?.ativo === false ? "Inativo" : "Ativo"}</strong>
+    </div>
+  `;
+  return banner;
 }
 
 function renderAdminStats(studentsList, choices) {
@@ -3602,6 +3654,11 @@ function buildChoicesCsv(choices) {
   ];
 
   return rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n");
+}
+
+function getExportFilename() {
+  const today = new Date().toISOString().slice(0, 10);
+  return `${CURRENT_PROCESS_ID}-${today}.csv`;
 }
 
 function buildTenthGradeChoicesCsv(choices) {
