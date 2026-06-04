@@ -230,6 +230,8 @@ const backAdminFromStatsButton = document.querySelector("#back-admin-from-stats"
 const backAdminButton = document.querySelector("#back-admin");
 const backAdminFromProcessesButton = document.querySelector("#back-admin-from-processes");
 const adminProcessesList = document.querySelector("#admin-processes-list");
+const backAdminFromChoiceButton = document.querySelector("#back-admin-from-choice");
+const adminChoiceDetailContent = document.querySelector("#admin-choice-detail-content");
 const adminFiltersForm = document.querySelector("#admin-filters");
 const filterProcess = document.querySelector("#filter-process");
 const filterCourse = document.querySelector("#filter-course");
@@ -822,6 +824,14 @@ backAdminFromProcessesButton.addEventListener("click", () => {
   showAdminHome();
 });
 
+backAdminFromChoiceButton.addEventListener("click", () => {
+  if (!isAdminUser) {
+    return;
+  }
+
+  showAdminHome();
+});
+
 downloadCsvButton.addEventListener("click", async () => {
   const { choices } = getFilteredAdminData();
   const csv = buildChoicesCsv(choices);
@@ -1292,6 +1302,7 @@ function showAdminHome() {
   document.querySelector("#admin-stats").classList.add("hidden");
   document.querySelector("#admin-tools").classList.add("hidden");
   document.querySelector("#admin-processes").classList.add("hidden");
+  document.querySelector("#admin-choice-detail").classList.add("hidden");
   document.querySelector("#admin").classList.remove("hidden");
   window.history.replaceState(null, "", "#admin");
   document.querySelector("#admin").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1301,6 +1312,7 @@ function showAdminStats() {
   document.querySelector("#admin").classList.add("hidden");
   document.querySelector("#admin-tools").classList.add("hidden");
   document.querySelector("#admin-processes").classList.add("hidden");
+  document.querySelector("#admin-choice-detail").classList.add("hidden");
   document.querySelector("#admin-stats").classList.remove("hidden");
   renderFilteredAdminDashboard();
   window.history.replaceState(null, "", "#admin-stats");
@@ -1311,6 +1323,7 @@ function showAdminTools() {
   document.querySelector("#admin").classList.add("hidden");
   document.querySelector("#admin-stats").classList.add("hidden");
   document.querySelector("#admin-processes").classList.add("hidden");
+  document.querySelector("#admin-choice-detail").classList.add("hidden");
   document.querySelector("#admin-tools").classList.remove("hidden");
   updateCsvOutput();
   window.history.replaceState(null, "", "#admin-tools");
@@ -1321,10 +1334,31 @@ function showAdminProcesses() {
   document.querySelector("#admin").classList.add("hidden");
   document.querySelector("#admin-stats").classList.add("hidden");
   document.querySelector("#admin-tools").classList.add("hidden");
+  document.querySelector("#admin-choice-detail").classList.add("hidden");
   document.querySelector("#admin-processes").classList.remove("hidden");
   renderAdminProcessesList();
   window.history.replaceState(null, "", "#admin-processes");
   document.querySelector("#admin-processes").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showAdminChoiceDetail(choice) {
+  if (!choice) {
+    return;
+  }
+
+  document.querySelector("#admin").classList.add("hidden");
+  document.querySelector("#admin-stats").classList.add("hidden");
+  document.querySelector("#admin-tools").classList.add("hidden");
+  document.querySelector("#admin-processes").classList.add("hidden");
+  document.querySelector("#admin-choice-detail").classList.remove("hidden");
+
+  const title = document.querySelector("#admin-choice-title");
+  title.textContent = `Submissão de ${choice.nome}`;
+  adminChoiceDetailContent.innerHTML = "";
+  adminChoiceDetailContent.appendChild(createChoiceSummaryElement(choice));
+
+  window.history.replaceState(null, "", "#admin-choice");
+  document.querySelector("#admin-choice-detail").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function showSummaryPage(choice) {
@@ -1377,6 +1411,12 @@ function renderSummaryTable(choice) {
     return;
   }
 
+  summaryTable.innerHTML = "";
+  summaryTable.appendChild(createChoiceSummaryElement(choice));
+}
+
+function createChoiceSummaryElement(choice) {
+  const wrapper = document.createElement("div");
   const table = document.createElement("table");
   table.className = "results-table";
   table.innerHTML = choice.escolha_10
@@ -1477,8 +1517,8 @@ function renderSummaryTable(choice) {
     </div>
   `;
 
-  summaryTable.innerHTML = "";
-  summaryTable.append(meta, table);
+  wrapper.append(meta, table);
+  return wrapper;
 }
 
 function isCurrentCourseCambridge() {
@@ -3549,7 +3589,7 @@ async function updateAdminResults(preloadedStudents = null, preloadedChoices = n
       const situationClass = notRenewing ? "not-renewing" : submitted ? "editable" : "pending";
       row.innerHTML = `
         <td></td>
-        <td>${escapeHtml(student.nome)}<br><small>${escapeHtml(student.aluno_id)}</small></td>
+        <td class="student-name-cell"></td>
         <td>${escapeHtml(student.turma)}</td>
         <td>${escapeHtml(rowCourse)}</td>
         <td><span class="status-pill ${situationClass}">${situationLabel}</span></td>
@@ -3558,7 +3598,21 @@ async function updateAdminResults(preloadedStudents = null, preloadedChoices = n
       `;
 
       const selectCell = row.querySelector("td:first-child");
+      const nameCell = row.querySelector(".student-name-cell");
       const actionCell = row.querySelector("td:last-child");
+
+      if (submitted && !notRenewing) {
+        const detailButton = document.createElement("button");
+        detailButton.type = "button";
+        detailButton.className = "link-button";
+        detailButton.textContent = student.nome;
+        detailButton.addEventListener("click", () => showAdminChoiceDetail(choice));
+        const id = document.createElement("small");
+        id.textContent = student.aluno_id;
+        nameCell.append(detailButton, document.createElement("br"), id);
+      } else {
+        nameCell.innerHTML = `${escapeHtml(student.nome)}<br><small>${escapeHtml(student.aluno_id)}</small>`;
+      }
 
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";

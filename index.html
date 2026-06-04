@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolha de Curso do 10.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260604-processos-admin">
+    <link rel="stylesheet" href="style.css?v=20260604-admin-ver-submissao">
   </head>
   <body>
     <header class="topbar">
@@ -399,12 +399,24 @@
         <p>Abre ou fecha processos disponíveis para os alunos. Os administradores podem continuar a consultar processos inativos.</p>
         <div id="admin-processes-list" class="admin-results"></div>
       </section>
+
+      <section class="panel admin admin-only hidden" aria-labelledby="admin-choice-title" id="admin-choice-detail">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Administração</p>
+            <h2 id="admin-choice-title">Consulta da submissão</h2>
+          </div>
+          <button id="back-admin-from-choice" class="secondary" type="button">Voltar ao painel</button>
+        </div>
+        <p>Consulta em modo leitura as opções submetidas pelo aluno.</p>
+        <div id="admin-choice-detail-content"></div>
+      </section>
     </main>
 
     <footer>
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260604-processos-admin"></script>
+    <script src="app.js?v=20260604-admin-ver-submissao"></script>
   </body>
 </html>

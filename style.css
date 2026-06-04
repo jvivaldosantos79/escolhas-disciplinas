@@ -797,6 +797,24 @@ dd {
   text-transform: inherit;
 }
 
+.link-button {
+  background: transparent;
+  border: 0;
+  color: var(--primary-dark);
+  font: inherit;
+  font-weight: 800;
+  min-height: auto;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.link-button:hover {
+  background: transparent;
+  color: var(--primary);
+}
+
 .table-sort::after {
   content: "↕";
   font-size: 0.7rem;
