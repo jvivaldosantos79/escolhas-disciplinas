@@ -225,8 +225,11 @@ const downloadCsvButton = document.querySelector("#download-csv");
 const clearResultsButton = document.querySelector("#clear-results");
 const openAdminStatsButton = document.querySelector("#open-admin-stats");
 const openAdminToolsButton = document.querySelector("#open-admin-tools");
+const openAdminProcessesButton = document.querySelector("#open-admin-processes");
 const backAdminFromStatsButton = document.querySelector("#back-admin-from-stats");
 const backAdminButton = document.querySelector("#back-admin");
+const backAdminFromProcessesButton = document.querySelector("#back-admin-from-processes");
+const adminProcessesList = document.querySelector("#admin-processes-list");
 const adminFiltersForm = document.querySelector("#admin-filters");
 const filterProcess = document.querySelector("#filter-process");
 const filterCourse = document.querySelector("#filter-course");
@@ -556,6 +559,23 @@ const processRepository = {
     }
 
     return data || [];
+  },
+
+  async updateActive(processId, active) {
+    const client = await ensureSupabaseReady();
+
+    if (!client) {
+      throw new Error("A configuração de processos requer ligação ao Supabase.");
+    }
+
+    const { error } = await client
+      .from("processos_escolha")
+      .update({ ativo: active })
+      .eq("id", processId);
+
+    if (error) {
+      throw new Error(`Não foi possível atualizar o processo: ${error.message}`);
+    }
   }
 };
 
@@ -770,6 +790,14 @@ openAdminToolsButton.addEventListener("click", () => {
   showAdminTools();
 });
 
+openAdminProcessesButton.addEventListener("click", () => {
+  if (!isAdminUser) {
+    return;
+  }
+
+  showAdminProcesses();
+});
+
 backAdminFromStatsButton.addEventListener("click", () => {
   if (!isAdminUser) {
     return;
@@ -779,6 +807,14 @@ backAdminFromStatsButton.addEventListener("click", () => {
 });
 
 backAdminButton.addEventListener("click", () => {
+  if (!isAdminUser) {
+    return;
+  }
+
+  showAdminHome();
+});
+
+backAdminFromProcessesButton.addEventListener("click", () => {
   if (!isAdminUser) {
     return;
   }
@@ -1255,6 +1291,7 @@ function showChoiceEditor() {
 function showAdminHome() {
   document.querySelector("#admin-stats").classList.add("hidden");
   document.querySelector("#admin-tools").classList.add("hidden");
+  document.querySelector("#admin-processes").classList.add("hidden");
   document.querySelector("#admin").classList.remove("hidden");
   window.history.replaceState(null, "", "#admin");
   document.querySelector("#admin").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1263,6 +1300,7 @@ function showAdminHome() {
 function showAdminStats() {
   document.querySelector("#admin").classList.add("hidden");
   document.querySelector("#admin-tools").classList.add("hidden");
+  document.querySelector("#admin-processes").classList.add("hidden");
   document.querySelector("#admin-stats").classList.remove("hidden");
   renderFilteredAdminDashboard();
   window.history.replaceState(null, "", "#admin-stats");
@@ -1272,10 +1310,21 @@ function showAdminStats() {
 function showAdminTools() {
   document.querySelector("#admin").classList.add("hidden");
   document.querySelector("#admin-stats").classList.add("hidden");
+  document.querySelector("#admin-processes").classList.add("hidden");
   document.querySelector("#admin-tools").classList.remove("hidden");
   updateCsvOutput();
   window.history.replaceState(null, "", "#admin-tools");
   document.querySelector("#admin-tools").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showAdminProcesses() {
+  document.querySelector("#admin").classList.add("hidden");
+  document.querySelector("#admin-stats").classList.add("hidden");
+  document.querySelector("#admin-tools").classList.add("hidden");
+  document.querySelector("#admin-processes").classList.remove("hidden");
+  renderAdminProcessesList();
+  window.history.replaceState(null, "", "#admin-processes");
+  document.querySelector("#admin-processes").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function showSummaryPage(choice) {
@@ -1298,7 +1347,7 @@ function showSummaryPage(choice) {
 }
 
 function showFaqPage() {
-  if (!signedInAccount || isAdminUser) {
+  if (!canShowFaq()) {
     return;
   }
 
@@ -1308,6 +1357,18 @@ function showFaqPage() {
   faqArea.classList.remove("hidden");
   window.history.replaceState(null, "", "#faq");
   faqArea.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function canShowFaq() {
+  return Boolean(signedInAccount && !isAdminUser && CURRENT_PROCESS_ID === "12_opcionais");
+}
+
+function updateFaqVisibility() {
+  faqNav.classList.toggle("hidden", !canShowFaq());
+
+  if (!canShowFaq()) {
+    faqArea.classList.add("hidden");
+  }
 }
 
 function renderSummaryTable(choice) {
@@ -2241,7 +2302,7 @@ function updateAuthUi() {
   });
 
   adminNav.classList.toggle("hidden", !isAdmin);
-  faqNav.classList.toggle("hidden", !isSignedIn || isAdmin);
+  updateFaqVisibility();
   headerSession.classList.toggle("hidden", !isSignedIn);
   signInButton.disabled = false;
 
@@ -2268,6 +2329,7 @@ function updateAuthUi() {
     faqArea.classList.add("hidden");
     document.querySelector("#admin").classList.add("hidden");
     document.querySelector("#admin-tools").classList.add("hidden");
+    document.querySelector("#admin-processes").classList.add("hidden");
     document.querySelector("#entrada").classList.add("hidden");
     window.history.replaceState(null, "", HOME_URL);
   }
@@ -2449,6 +2511,88 @@ function createAdminProcessBanner() {
     </div>
   `;
   return banner;
+}
+
+function renderAdminProcessesList() {
+  if (!adminProcessesList) {
+    return;
+  }
+
+  if (activeProcessesCache.length === 0) {
+    adminProcessesList.textContent = "Não existem processos configurados.";
+    return;
+  }
+
+  const wrapper = document.createElement("div");
+  const message = document.createElement("p");
+  message.className = "message hidden";
+  message.setAttribute("role", "status");
+  message.setAttribute("aria-live", "polite");
+
+  const table = document.createElement("table");
+  table.className = "results-table";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Processo</th>
+        <th>Ano</th>
+        <th>Estado</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+
+  const tbody = table.querySelector("tbody");
+
+  activeProcessesCache.forEach((process) => {
+    const row = document.createElement("tr");
+    const isActive = Boolean(process.ativo);
+    row.innerHTML = `
+      <td>${escapeHtml(process.nome || processesConfig[process.id]?.title || process.id)}<br><small>${escapeHtml(process.id)}</small></td>
+      <td>${escapeHtml(process.ano || processesConfig[process.id]?.year || "-")}</td>
+      <td><span class="status-pill ${isActive ? "editable" : "not-renewing"}">${isActive ? "Aberto" : "Fechado"}</span></td>
+      <td></td>
+    `;
+
+    const actionCell = row.querySelector("td:last-child");
+    const toggleButton = document.createElement("button");
+    toggleButton.type = "button";
+    toggleButton.className = isActive ? "secondary danger" : "secondary";
+    toggleButton.textContent = isActive ? "Fechar processo" : "Abrir processo";
+    toggleButton.addEventListener("click", async () => {
+      await updateProcessActiveState(process.id, !isActive, toggleButton, message);
+    });
+    actionCell.appendChild(toggleButton);
+    tbody.appendChild(row);
+  });
+
+  wrapper.append(message, table);
+  adminProcessesList.innerHTML = "";
+  adminProcessesList.appendChild(wrapper);
+}
+
+async function updateProcessActiveState(processId, active, button, message) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "A guardar...";
+  message.className = "message";
+  message.textContent = "A atualizar processo...";
+
+  try {
+    await processRepository.updateActive(processId, active);
+    await initActiveProcess();
+    message.className = "message success";
+    message.textContent = active ? "Processo aberto aos alunos." : "Processo fechado aos alunos.";
+    renderAdminProcessesList();
+    await updateAdminDashboard();
+  } catch (error) {
+    message.className = "message warning";
+    message.textContent = error.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
 }
 
 function renderAdminStats(studentsList, choices) {
@@ -3791,6 +3935,7 @@ function applyProcessConfig(processId) {
   STORAGE_KEY = CURRENT_PROCESS.storageKey;
   initProcessUi();
   updateProcessFilterOptions();
+  updateFaqVisibility();
 }
 
 async function initActiveProcess() {

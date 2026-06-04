@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolha de Curso do 10.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260604-comprovativo">
+    <link rel="stylesheet" href="style.css?v=20260604-processos-admin">
   </head>
   <body>
     <header class="topbar">
@@ -302,6 +302,7 @@
           <div class="admin-actions">
             <button id="open-admin-stats" class="secondary" type="button">Ver estatísticas</button>
             <button id="open-admin-tools" class="secondary" type="button">Exportação e manutenção</button>
+            <button id="open-admin-processes" class="secondary" type="button">Configurar processos</button>
           </div>
         </div>
         <p>Área disponível apenas para administradores autenticados.</p>
@@ -386,12 +387,24 @@
         </div>
         <textarea id="csv-output" readonly rows="8" aria-label="Exportação CSV">Sem resultados submetidos.</textarea>
       </section>
+
+      <section class="panel admin admin-only hidden" aria-labelledby="admin-processes-title" id="admin-processes">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Administração</p>
+            <h2 id="admin-processes-title">Configuração de processos</h2>
+          </div>
+          <button id="back-admin-from-processes" class="secondary" type="button">Voltar à administração</button>
+        </div>
+        <p>Abre ou fecha processos disponíveis para os alunos. Os administradores podem continuar a consultar processos inativos.</p>
+        <div id="admin-processes-list" class="admin-results"></div>
+      </section>
     </main>
 
     <footer>
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260604-comprovativo"></script>
+    <script src="app.js?v=20260604-processos-admin"></script>
   </body>
 </html>
