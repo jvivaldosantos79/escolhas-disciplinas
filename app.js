@@ -2647,15 +2647,19 @@ function renderAdminStats(studentsList, choices) {
   const subjectStats = buildSubjectStats(choices);
   const subjectByCourse = buildSubjectStatsByCourse(choices);
   const tenthCourseChoices = buildTenthGradeCourseChoiceStats(choices);
+  const tenthCourseByClass = buildTenthGradeCourseByClassStats(choices);
   const tenthCambridgeByClass = buildTenthGradeCambridgeByClassStats(studentsList, choices);
   const tenthOptionStats = buildTenthGradeOptionStats(choices);
+  const tenthSubjectsByCourse = buildTenthGradeSubjectsByCourseStats(choices);
   const tenthExportPreview = buildTenthGradeExportPreview(choices);
 
   if (isTenthGradeProcess()) {
     const tabs = [
       ["curso-escolhido", "Cursos escolhidos", createTenthGradeCourseChoiceStatsTable(tenthCourseChoices)],
+      ["cursos-turma", "Cursos escolhidos por turma", createTenthGradeCourseByClassTable(tenthCourseByClass)],
       ["cambridge", "Cambridge", createTenthGradeCambridgeByClassTable(tenthCambridgeByClass)],
       ["opcoes-ct", "Opções de Ciências e Tecnologias", createTenthGradeOptionStatsTable(tenthOptionStats)],
+      ["disciplinas-curso", "Disciplinas por curso", createTenthGradeSubjectsByCourseTable(tenthSubjectsByCourse)],
       ["pendentes", "Alunos por preencher", createPendingStudentsTable(pendingStudents)],
       ["nao-renovam", "Não renovam", createNotRenewingStudentsTable(notRenewingStudents)],
       ["exportacao", "Resumo para exportação", createTenthGradeExportPreviewTable(tenthExportPreview)]
@@ -2771,7 +2775,7 @@ function studentMatchesAdminFilters(student, choice, filters) {
   const submitted = Boolean(choice);
   const notRenewing = isStudentNotRenewing(student.aluno_id);
 
-  if (filters.course && (choice ? getChoiceCourseLabel(choice) : getCourseLabel(student.curso)) !== filters.course) {
+  if (filters.course && !(isTenthGradeProcess() && filters.submission === "pending") && (choice ? getChoiceCourseLabel(choice) : getCourseLabel(student.curso)) !== filters.course) {
     return false;
   }
 
@@ -3032,6 +3036,31 @@ function buildTenthGradeCourseChoiceStats(choices) {
   );
 }
 
+function buildTenthGradeCourseByClassStats(choices) {
+  const counts = new Map();
+
+  choices.forEach((choice) => {
+    if (!choice.escolha_10) {
+      return;
+    }
+
+    const className = choice.turma || "-";
+    const course = choice.escolha_10.curso_label || "Sem curso";
+    const key = `${className}||${course}`;
+    counts.set(key, {
+      className,
+      course,
+      count: (counts.get(key)?.count || 0) + 1
+    });
+  });
+
+  return Array.from(counts.values()).sort((first, second) =>
+    first.className.localeCompare(second.className, "pt-PT") ||
+    second.count - first.count ||
+    first.course.localeCompare(second.course, "pt-PT")
+  );
+}
+
 function buildTenthGradeCambridgeByClassStats(studentsList, choices) {
   const studentsById = new Map(studentsList.map((student) => [String(student.aluno_id), student]));
   const counts = new Map();
@@ -3079,6 +3108,34 @@ function buildTenthGradeOptionStats(choices) {
   return Array.from(counts.entries())
     .map(([subject, count]) => ({ subject, count }))
     .sort((first, second) => second.count - first.count || first.subject.localeCompare(second.subject, "pt-PT"));
+}
+
+function buildTenthGradeSubjectsByCourseStats(choices) {
+  const counts = new Map();
+
+  choices.forEach((choice) => {
+    if (!choice.escolha_10) {
+      return;
+    }
+
+    const course = choice.escolha_10.curso_label || "Sem curso";
+    const subjects = new Set(getTenthGradeSubjectsForExport(choice.escolha_10).filter(Boolean));
+
+    subjects.forEach((subject) => {
+      const key = `${course}||${subject}`;
+      counts.set(key, {
+        course,
+        subject,
+        count: (counts.get(key)?.count || 0) + 1
+      });
+    });
+  });
+
+  return Array.from(counts.values()).sort((first, second) =>
+    first.course.localeCompare(second.course, "pt-PT") ||
+    second.count - first.count ||
+    first.subject.localeCompare(second.subject, "pt-PT")
+  );
 }
 
 function buildTenthGradeExportPreview(choices) {
@@ -3269,6 +3326,17 @@ function createTenthGradeCourseChoiceStatsTable(rows) {
   );
 }
 
+function createTenthGradeCourseByClassTable(rows) {
+  if (rows.length === 0) {
+    return createEmptyMessage("Ainda não existem cursos escolhidos por turma.");
+  }
+
+  return createTable(
+    ["Turma", "Curso escolhido", "Alunos"],
+    rows.map((row) => [row.className, row.course, row.count])
+  );
+}
+
 function createTenthGradeCambridgeByClassTable(rows) {
   if (rows.length === 0) {
     return createEmptyMessage("Ainda não existem escolhas Cambridge.");
@@ -3282,12 +3350,23 @@ function createTenthGradeCambridgeByClassTable(rows) {
 
 function createTenthGradeOptionStatsTable(rows) {
   if (rows.length === 0) {
-    return createEmptyMessage("Ainda não existem opções registadas em Ciências e Tecnologias.");
+    return createEmptyMessage("Ainda não existem escolhas de Biologia e Geologia ou Geometria Descritiva A.");
   }
 
   return createTable(
     ["Disciplina de opção", "Alunos"],
     rows.map((row) => [row.subject, row.count])
+  );
+}
+
+function createTenthGradeSubjectsByCourseTable(rows) {
+  if (rows.length === 0) {
+    return createEmptyMessage("Ainda não existem disciplinas associadas por curso.");
+  }
+
+  return createTable(
+    ["Curso escolhido", "Disciplina", "Alunos"],
+    rows.map((row) => [row.course, row.subject, row.count])
   );
 }
 
