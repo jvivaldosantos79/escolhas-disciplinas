@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolha de Curso do 10.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260604-admin-ver-submissao">
+    <link rel="stylesheet" href="style.css?v=20260617-admin-emulacao">
   </head>
   <body>
     <header class="topbar">
@@ -65,6 +65,14 @@
       </section>
 
       <section id="student-area" class="panel hidden" aria-labelledby="titulo-aluno">
+        <div id="admin-emulation-banner" class="admin-emulation-banner hidden">
+          <div>
+            <p class="eyebrow">Modo administrador</p>
+            <strong>A emular acesso de aluno</strong>
+            <span>As escolhas guardadas nesta área ficam registadas como efetuadas pela administração.</span>
+          </div>
+          <button id="stop-admin-emulation" class="secondary" type="button">Voltar ao painel</button>
+        </div>
         <div class="section-head">
           <div>
             <p class="eyebrow">Área do aluno</p>
@@ -417,6 +425,6 @@
       <p>Aplicação escolar demonstrativa. Recolhe apenas os dados mínimos necessários.</p>
     </footer>
 
-    <script src="app.js?v=20260604-estatisticas-10-corrigidas"></script>
+    <script src="app.js?v=20260617-auditoria-admin-bd"></script>
   </body>
 </html>

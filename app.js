@@ -215,6 +215,8 @@ const validationMessage = document.querySelector("#validation-message");
 const submitChoiceButton = document.querySelector("#submit-choice");
 const cancelEditButton = document.querySelector("#cancel-edit");
 const confirmation = document.querySelector("#confirmation");
+const adminEmulationBanner = document.querySelector("#admin-emulation-banner");
+const stopAdminEmulationButton = document.querySelector("#stop-admin-emulation");
 const csvOutput = document.querySelector("#csv-output");
 const adminDashboard = document.querySelector("#admin-dashboard");
 const adminStatsDashboard = document.querySelector("#admin-stats-dashboard");
@@ -255,6 +257,10 @@ let adminChoicesCache = [];
 let adminStudentStatusesCache = new Map();
 let lastStudentView = "home";
 let activeProcessesCache = [];
+let adminEmulation = {
+  active: false,
+  previousProcessId: null
+};
 
 const loginRequest = {
   scopes: ["openid", "profile", "email", "User.Read"]
@@ -403,13 +409,14 @@ const choiceRepository = {
       .filter((choice) => getProcessId(choice) === CURRENT_PROCESS_ID);
   },
 
-  async save(choice) {
+  async save(choice, options = {}) {
     const client = await ensureSupabaseReady();
+    const allowLocked = Boolean(options.allowLocked);
 
     if (client) {
       const existingChoice = await this.getByAlunoId(choice.aluno_id);
 
-      if (existingChoice?.estado === "bloqueada") {
+      if (existingChoice?.estado === "bloqueada" && !allowLocked) {
         throw new Error("A submissão está bloqueada pela administração e já não pode ser alterada.");
       }
 
@@ -430,7 +437,16 @@ const choiceRepository = {
     const existingIndex = choices.findIndex((item) => item.aluno_id === choice.aluno_id);
 
     if (existingIndex >= 0) {
-      choices[existingIndex] = choice;
+      if (choices[existingIndex]?.estado === "bloqueada" && !allowLocked) {
+        throw new Error("A submissão está bloqueada pela administração e já não pode ser alterada.");
+      }
+
+      choices[existingIndex] = {
+        ...choices[existingIndex],
+        ...choice,
+        estado: choices[existingIndex]?.estado || choice.estado || "submetida",
+        atualizado_em: new Date().toISOString()
+      };
     } else {
       choices.push(choice);
     }
@@ -636,6 +652,12 @@ editChoiceButton.addEventListener("click", () => {
 });
 
 cancelEditButton.addEventListener("click", () => {
+  if (isAdminEmulationActive()) {
+    stopAdminEmulation();
+    showAdminHome();
+    return;
+  }
+
   if (currentChoice) {
     renderStudentArea(currentStudent, currentChoice);
     showSummaryPage(currentChoice);
@@ -643,6 +665,11 @@ cancelEditButton.addEventListener("click", () => {
   }
 
   showHome();
+});
+
+stopAdminEmulationButton.addEventListener("click", () => {
+  stopAdminEmulation();
+  showAdminHome();
 });
 
 faqBackButton.addEventListener("click", () => {
@@ -706,6 +733,7 @@ choicesForm.addEventListener("submit", async (event) => {
     processo_id: getProcessId(currentStudent),
     ano: getProcessYear(currentStudent),
     autenticado_com: getSignedInEmail(),
+    auditoria: buildSubmissionAudit(),
     prioridades: isTenthGrade ? [] : priorities,
     cambridge,
     escolha_10: tenthGrade,
@@ -717,11 +745,16 @@ choicesForm.addEventListener("submit", async (event) => {
   try {
     submitChoiceButton.disabled = true;
     submitChoiceButton.textContent = currentChoice ? "A atualizar..." : "A guardar...";
-    validationMessage.textContent = "A guardar a escolha...";
+    validationMessage.textContent = isAdminEmulationActive()
+      ? "A guardar a escolha em modo administrador..."
+      : "A guardar a escolha...";
     validationMessage.className = "validation";
-    await choiceRepository.save(choice);
+    await choiceRepository.save(choice, { allowLocked: isAdminEmulationActive() });
     currentChoice = await choiceRepository.getByAlunoId(currentStudent.aluno_id);
     updateChoiceStatus(currentChoice);
+    if (isAdminEmulationActive()) {
+      await updateAdminDashboard();
+    }
     await updateCsvOutput();
     showSummaryPage(currentChoice);
   } catch (error) {
@@ -975,7 +1008,7 @@ function renderStudentArea(student, existingChoice = null) {
   }
 
   updateChoiceStatus(existingChoice);
-  setChoicesLocked(existingChoice?.estado === "bloqueada");
+  setChoicesLocked(existingChoice?.estado === "bloqueada" && !isAdminEmulationActive());
   submitChoiceButton.disabled = true;
   updateValidation();
 }
@@ -1027,7 +1060,7 @@ function renderTenthGradeStudentArea(student, existingChoice = null) {
   }
 
   updateChoiceStatus(existingChoice);
-  setChoicesLocked(existingChoice?.estado === "bloqueada");
+  setChoicesLocked(existingChoice?.estado === "bloqueada" && !isAdminEmulationActive());
   studentArea.classList.remove("hidden");
   submitChoiceButton.disabled = true;
   updateTenthGradeUi();
@@ -1065,9 +1098,13 @@ function updateChoiceStatus(choice) {
   }
 
   const isLocked = choice.estado === "bloqueada";
-  choiceStatus.textContent = isLocked ? "Submissão bloqueada" : "Submissão editável";
+  choiceStatus.textContent = isLocked && isAdminEmulationActive()
+    ? "Bloqueada, editável pelo admin"
+    : isLocked
+    ? "Submissão bloqueada"
+    : "Submissão editável";
   choiceStatus.className = `status-pill ${isLocked ? "locked" : "editable"}`;
-  submitChoiceButton.textContent = isLocked ? "Submissão bloqueada" : "Atualizar escolha";
+  submitChoiceButton.textContent = isLocked && !isAdminEmulationActive() ? "Submissão bloqueada" : "Atualizar escolha";
 }
 
 function setChoicesLocked(isLocked) {
@@ -1287,18 +1324,28 @@ function showChoiceEditor() {
   }
 
   document.querySelector("#entrada").classList.add("hidden");
+  document.querySelector("#admin").classList.add("hidden");
+  document.querySelector("#admin-stats").classList.add("hidden");
+  document.querySelector("#admin-tools").classList.add("hidden");
+  document.querySelector("#admin-processes").classList.add("hidden");
+  document.querySelector("#admin-choice-detail").classList.add("hidden");
   summaryArea.classList.add("hidden");
   faqArea.classList.add("hidden");
   studentArea.classList.remove("hidden");
+  updateAdminEmulationUi();
   lastStudentView = "editor";
   cancelEditButton.classList.toggle("hidden", !currentChoice);
-  setChoicesLocked(currentChoice?.estado === "bloqueada");
+  setChoicesLocked(currentChoice?.estado === "bloqueada" && !isAdminEmulationActive());
   updateValidation();
   window.history.replaceState(null, "", "#opcoes");
   studentArea.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function showAdminHome() {
+  stopAdminEmulation({ preserveProcess: true });
+  studentArea.classList.add("hidden");
+  summaryArea.classList.add("hidden");
+  faqArea.classList.add("hidden");
   document.querySelector("#admin-stats").classList.add("hidden");
   document.querySelector("#admin-tools").classList.add("hidden");
   document.querySelector("#admin-processes").classList.add("hidden");
@@ -1361,19 +1408,72 @@ function showAdminChoiceDetail(choice) {
   document.querySelector("#admin-choice-detail").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+async function startAdminEmulation(student, choice = null) {
+  if (!isAdminUser) {
+    return;
+  }
+
+  adminEmulation = {
+    active: true,
+    previousProcessId: CURRENT_PROCESS_ID
+  };
+  currentStudent = student;
+  currentChoice = choice || await choiceRepository.getByAlunoId(student.aluno_id);
+
+  renderStudentArea(currentStudent, currentChoice);
+  showChoiceEditor();
+}
+
+function stopAdminEmulation(options = {}) {
+  const wasActive = isAdminEmulationActive();
+  adminEmulation = {
+    active: false,
+    previousProcessId: null
+  };
+  updateAdminEmulationUi();
+
+  if (!wasActive) {
+    return;
+  }
+
+  currentStudent = null;
+  currentChoice = null;
+
+  if (!options.preserveProcess && filterProcess?.value) {
+    applyProcessConfig(filterProcess.value);
+  }
+}
+
+function isAdminEmulationActive() {
+  return Boolean(adminEmulation.active && isAdminUser);
+}
+
+function updateAdminEmulationUi() {
+  adminEmulationBanner.classList.toggle("hidden", !isAdminEmulationActive());
+  studentArea.classList.toggle("admin-emulation-mode", isAdminEmulationActive());
+  cancelEditButton.textContent = isAdminEmulationActive() ? "Voltar ao painel" : "Cancelar";
+}
+
 function showSummaryPage(choice) {
   studentArea.classList.add("hidden");
   faqArea.classList.add("hidden");
   document.querySelector("#entrada").classList.add("hidden");
+  document.querySelector("#admin").classList.add("hidden");
+  document.querySelector("#admin-stats").classList.add("hidden");
+  document.querySelector("#admin-tools").classList.add("hidden");
+  document.querySelector("#admin-processes").classList.add("hidden");
+  document.querySelector("#admin-choice-detail").classList.add("hidden");
   summaryArea.classList.remove("hidden");
   lastStudentView = "summary";
   renderSummaryTable(choice);
 
   const isLocked = choice?.estado === "bloqueada";
-  summaryMessage.textContent = isLocked
+  summaryMessage.textContent = isAdminEmulationActive()
+    ? "Submissão guardada em modo administrador. O registo identifica a conta administrativa usada na gravação."
+    : isLocked
     ? "A submissão está bloqueada pela administração e não pode ser alterada."
     : "A submissão está guardada e ainda pode ser alterada.";
-  editChoiceButton.classList.toggle("hidden", isLocked);
+  editChoiceButton.classList.toggle("hidden", isLocked && !isAdminEmulationActive());
   cancelEditButton.classList.add("hidden");
 
   window.history.replaceState(null, "", "#resumo");
@@ -1413,6 +1513,57 @@ function renderSummaryTable(choice) {
 
   summaryTable.innerHTML = "";
   summaryTable.appendChild(createChoiceSummaryElement(choice));
+}
+
+function getAdminRegistrationNote(choice) {
+  if (choice?.submetido_por_admin) {
+    const name = choice.submetido_por_nome ? `${choice.submetido_por_nome} ` : "";
+    const email = choice.submetido_por_email || choice.autenticado_com || "";
+    return `Efetuado pela administração (${name}${email})`;
+  }
+
+  if (choice?.submetido_por_tipo === "admin") {
+    const email = choice.submetido_por_email || choice.autenticado_com || "";
+    return `Efetuado pela administração (${email})`;
+  }
+
+  if (!choice?.autenticado_com) {
+    return "";
+  }
+
+  const authenticatedEmail = normalizeEmail(choice.autenticado_com);
+  const student = findKnownStudent(choice.aluno_id);
+  const studentEmail = normalizeEmail(student?.email || currentStudent?.email || "");
+
+  if (authenticatedEmail && studentEmail && authenticatedEmail !== studentEmail) {
+    return `Efetuado pela administração (${choice.autenticado_com})`;
+  }
+
+  if (isAdminEmulationActive() && authenticatedEmail === getSignedInEmail()) {
+    return `Efetuado pela administração (${choice.autenticado_com})`;
+  }
+
+  return "";
+}
+
+function getChoiceAuditDescription(choice) {
+  const adminNote = getAdminRegistrationNote(choice);
+
+  if (adminNote && choice?.observacao_admin) {
+    return `${adminNote}. ${choice.observacao_admin}`;
+  }
+
+  return adminNote || "Efetuado pelo aluno";
+}
+
+function findKnownStudent(alunoId) {
+  const id = String(alunoId || "");
+
+  if (currentStudent && String(currentStudent.aluno_id) === id) {
+    return currentStudent;
+  }
+
+  return adminStudentsCache.find((student) => String(student.aluno_id) === id) || null;
 }
 
 function createChoiceSummaryElement(choice) {
@@ -1494,6 +1645,7 @@ function createChoiceSummaryElement(choice) {
 
   const meta = document.createElement("dl");
   meta.className = "student-summary";
+  const auditDescription = getChoiceAuditDescription(choice);
   meta.innerHTML = `
     <div>
       <dt>Aluno</dt>
@@ -1514,6 +1666,10 @@ function createChoiceSummaryElement(choice) {
     <div>
       <dt>Estado</dt>
       <dd>${choice.estado === "bloqueada" ? "Bloqueada" : "Editável"}</dd>
+    </div>
+    <div>
+      <dt>Registo</dt>
+      <dd>${escapeHtml(auditDescription)}</dd>
     </div>
   `;
 
@@ -1806,7 +1962,7 @@ function updateValidation() {
     return;
   }
 
-  if (currentChoice?.estado === "bloqueada") {
+  if (currentChoice?.estado === "bloqueada" && !isAdminEmulationActive()) {
     validationMessage.textContent = "Submissão bloqueada pela administração.";
     validationMessage.className = "validation invalid";
     submitChoiceButton.disabled = true;
@@ -2097,11 +2253,32 @@ function getProcessYear(record) {
   return record?.ano || CURRENT_PROCESS_YEAR;
 }
 
+function buildSubmissionAudit() {
+  const isAdminSubmission = isAdminEmulationActive();
+
+  return {
+    submetido_por_tipo: isAdminSubmission ? "admin" : "aluno",
+    submetido_por_email: getSignedInEmail(),
+    submetido_por_nome: getSignedInDisplayName(),
+    submetido_por_admin: isAdminSubmission,
+    observacao_admin: isAdminSubmission
+      ? "Escolha registada/alterada pela administração em modo de emulação."
+      : null
+  };
+}
+
 function mapChoiceToDatabase(choice, existingChoice = null) {
   const prioritySubjects = getPrioritySubjectsForExport(choice);
   const now = new Date().toISOString();
   const cambridge = choice.cambridge || {};
   const tenthGrade = choice.escolha_10 || null;
+  const audit = choice.auditoria || {
+    submetido_por_tipo: choice.submetido_por_admin ? "admin" : "aluno",
+    submetido_por_email: choice.autenticado_com || "",
+    submetido_por_nome: "",
+    submetido_por_admin: Boolean(choice.submetido_por_admin),
+    observacao_admin: choice.observacao_admin || null
+  };
 
   const payload = {
     aluno_id: String(choice.aluno_id),
@@ -2123,7 +2300,12 @@ function mapChoiceToDatabase(choice, existingChoice = null) {
     cambridge_disciplina_extra: cambridge.disciplina_extra || null,
     submetido_em: existingChoice?.submetido_em || choice.submetido_em,
     atualizado_em: existingChoice ? now : null,
-    estado: existingChoice?.estado || "submetida"
+    estado: existingChoice?.estado || "submetida",
+    submetido_por_tipo: audit.submetido_por_tipo || "aluno",
+    submetido_por_email: audit.submetido_por_email || choice.autenticado_com || "",
+    submetido_por_nome: audit.submetido_por_nome || "",
+    submetido_por_admin: Boolean(audit.submetido_por_admin),
+    observacao_admin: audit.observacao_admin || null
   };
 
   if (tenthGrade) {
@@ -2194,7 +2376,12 @@ function mapChoiceFromDatabase(row) {
       : null,
     submetido_em: row.submetido_em,
     atualizado_em: row.atualizado_em,
-    estado: row.estado || "submetida"
+    estado: row.estado || "submetida",
+    submetido_por_tipo: row.submetido_por_tipo || (row.submetido_por_admin ? "admin" : "aluno"),
+    submetido_por_email: row.submetido_por_email || row.email_autenticado || "",
+    submetido_por_nome: row.submetido_por_nome || "",
+    submetido_por_admin: Boolean(row.submetido_por_admin),
+    observacao_admin: row.observacao_admin || null
   };
 }
 
@@ -3738,10 +3925,27 @@ async function updateAdminResults(preloadedStudents = null, preloadedChoices = n
         await updateStudentProcessStatus(student.aluno_id, "nao_renova", notRenewingButton, adminActionMessage);
       });
 
+      const emulateButton = document.createElement("button");
+      emulateButton.type = "button";
+      emulateButton.className = "secondary";
+      emulateButton.textContent = submitted ? "Emular/editar" : "Emular";
+      emulateButton.addEventListener("click", async () => {
+        emulateButton.disabled = true;
+
+        try {
+          await startAdminEmulation(student, choice);
+        } catch (error) {
+          adminResults.textContent = error.message;
+        } finally {
+          emulateButton.disabled = false;
+        }
+      });
+
       if (submitted) {
         actionCell.appendChild(button);
       }
 
+      actionCell.appendChild(emulateButton);
       actionCell.appendChild(notRenewingButton);
       tbody.appendChild(row);
     });
@@ -3900,7 +4104,13 @@ function buildChoicesCsv(choices) {
       "disciplinas_automaticas_10",
       "disciplina_opcao_10",
       "submetido_em",
-      "estado"
+      "estado",
+      "registado_por_admin",
+      "submetido_por_tipo",
+      "submetido_por_email",
+      "submetido_por_nome",
+      "observacao_admin",
+      "nota_registo"
     ],
     ...choices.map((choice) => {
       const prioritySubjects = getPrioritySubjectsForExport(choice);
@@ -3925,7 +4135,13 @@ function buildChoicesCsv(choices) {
         (choice.escolha_10?.disciplinas_automaticas || []).join(" | "),
         choice.escolha_10?.disciplina_opcao || "",
         choice.submetido_em,
-        choice.estado || "submetida"
+        choice.estado || "submetida",
+        choice.submetido_por_admin ? "Sim" : "Não",
+        choice.submetido_por_tipo || "",
+        choice.submetido_por_email || "",
+        choice.submetido_por_nome || "",
+        choice.observacao_admin || "",
+        getChoiceAuditDescription(choice)
       ];
     })
   ];
@@ -3955,7 +4171,13 @@ function buildTenthGradeChoicesCsv(choices) {
       "processo_id",
       "ano",
       "submetido_em",
-      "estado"
+      "estado",
+      "registado_por_admin",
+      "submetido_por_tipo",
+      "submetido_por_email",
+      "submetido_por_nome",
+      "observacao_admin",
+      "nota_registo"
     ],
     ...choices
       .filter((choice) => choice.escolha_10)
@@ -3977,7 +4199,13 @@ function buildTenthGradeChoicesCsv(choices) {
           getProcessId(choice),
           getProcessYear(choice),
           choice.submetido_em,
-          choice.estado || "submetida"
+          choice.estado || "submetida",
+          choice.submetido_por_admin ? "Sim" : "Não",
+          choice.submetido_por_tipo || "",
+          choice.submetido_por_email || "",
+          choice.submetido_por_nome || "",
+          choice.observacao_admin || "",
+          getChoiceAuditDescription(choice)
         ];
       })
   ];

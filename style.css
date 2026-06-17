@@ -603,6 +603,32 @@ dd {
   justify-content: flex-end;
 }
 
+.admin-emulation-banner {
+  align-items: center;
+  background: #fff7e6;
+  border: 1px solid #e8c56f;
+  border-radius: 8px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+  padding: 1rem;
+}
+
+.admin-emulation-banner strong,
+.admin-emulation-banner span {
+  display: block;
+}
+
+.admin-emulation-banner span {
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+.admin-emulation-mode {
+  border-color: #e8c56f;
+}
+
 .admin-results {
   margin-top: 1.35rem;
   overflow-x: auto;
@@ -774,7 +800,7 @@ dd {
 }
 
 .results-table td:last-child {
-  min-width: 235px;
+  min-width: 330px;
 }
 
 .results-table td:last-child button + button {
