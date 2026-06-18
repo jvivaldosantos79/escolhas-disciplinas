@@ -578,7 +578,7 @@ dd {
 
 .filter-row-search {
   align-items: end;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .admin-filters label {

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Escolha de Curso do 10.º Ano</title>
-    <link rel="stylesheet" href="style.css?v=20260617-admin-emulacao">
+    <link rel="stylesheet" href="style.css?v=20260618-excel-filtros">
   </head>
   <body>
     <header class="topbar">
@@ -359,6 +359,7 @@
               Pesquisa
               <input id="filter-search" type="search" placeholder="Pesquisar por nome, número, email, turma ou curso">
             </label>
+            <button id="download-excel" class="secondary" type="button">Exportar Excel filtrado</button>
             <button id="clear-filters" class="secondary" type="button">Limpar filtros</button>
           </div>
         </form>
@@ -391,7 +392,6 @@
         <div class="admin-actions">
           <button id="export-csv" type="button">Exportar CSV</button>
           <button id="download-csv" class="secondary" type="button">Descarregar ficheiro CSV</button>
-          <button id="download-excel" class="secondary" type="button">Descarregar Excel filtrado</button>
           <button id="clear-results" class="secondary danger" type="button">Limpar resultados</button>
         </div>
         <textarea id="csv-output" readonly rows="8" aria-label="Exportação CSV">Sem resultados submetidos.</textarea>
