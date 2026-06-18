@@ -224,6 +224,7 @@ const adminResults = document.querySelector("#admin-results");
 const refreshResultsButton = document.querySelector("#refresh-results");
 const exportCsvButton = document.querySelector("#export-csv");
 const downloadCsvButton = document.querySelector("#download-csv");
+const downloadExcelButton = document.querySelector("#download-excel");
 const clearResultsButton = document.querySelector("#clear-results");
 const openAdminStatsButton = document.querySelector("#open-admin-stats");
 const openAdminToolsButton = document.querySelector("#open-admin-tools");
@@ -872,6 +873,17 @@ downloadCsvButton.addEventListener("click", async () => {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = getExportFilename();
+  link.click();
+  URL.revokeObjectURL(link.href);
+});
+
+downloadExcelButton.addEventListener("click", () => {
+  const filtered = getFilteredAdminData();
+  const workbookHtml = buildFilteredExcelWorkbook(filtered.students, filtered.choices);
+  const blob = new Blob([workbookHtml], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = getExcelExportFilename();
   link.click();
   URL.revokeObjectURL(link.href);
 });
@@ -4152,6 +4164,94 @@ function buildChoicesCsv(choices) {
 function getExportFilename() {
   const today = new Date().toISOString().slice(0, 10);
   return `${CURRENT_PROCESS_ID}-${today}.csv`;
+}
+
+function getExcelExportFilename() {
+  const today = new Date().toISOString().slice(0, 10);
+  return `${CURRENT_PROCESS_ID}-filtrado-${today}.xls`;
+}
+
+function buildFilteredExcelWorkbook(studentsList, choices) {
+  const choicesByAluno = new Map(choices.map((choice) => [String(choice.aluno_id), choice]));
+  const rows = studentsList.map((student) => {
+    const choice = choicesByAluno.get(String(student.aluno_id)) || null;
+    const notRenewing = isStudentNotRenewing(student.aluno_id);
+    const situation = notRenewing ? "Não renova" : choice ? "Preencheu" : "Por preencher";
+    const status = choice ? (choice.estado === "bloqueada" ? "Bloqueada" : "Editável") : "";
+    const processTitle = processesConfig[getProcessId(student)]?.title || CURRENT_PROCESS.title;
+    const row = {
+      "Aluno ID": student.aluno_id,
+      "Nome": student.nome,
+      "Turma": student.turma,
+      "Curso base": getCourseLabel(student.curso),
+      "Situação": situation,
+      "Estado": status,
+      "Processo": processTitle,
+      "Email aluno": student.email || "",
+      "Submetido em": choice ? formatDateTime(choice.submetido_em) : "",
+      "Atualizado em": choice ? formatDateTime(choice.atualizado_em) : "",
+      "Registo": choice ? getChoiceAuditDescription(choice) : ""
+    };
+
+    if (isTenthGradeProcess()) {
+      row["Curso escolhido"] = choice?.escolha_10?.curso_label || "";
+      row["Cambridge"] = choice?.escolha_10?.cambridge ? "Sim" : choice ? "Não" : "";
+      row["Tipo Cambridge"] = choice?.escolha_10 ? formatCambridgeType(choice.escolha_10.tipo_cambridge) : "";
+      row["Estado Cambridge"] = choice?.escolha_10 ? formatCambridgeStatus(choice.escolha_10.estado_cambridge) : "";
+      row["Disciplinas automáticas"] = (choice?.escolha_10?.disciplinas_automaticas || []).join(" | ");
+      row["Disciplina de opção"] = choice?.escolha_10?.disciplina_opcao || "";
+      row["Disciplinas finais"] = choice?.escolha_10 ? getTenthGradeSubjectsForExport(choice.escolha_10).join(" | ") : "";
+      return row;
+    }
+
+    if (choice?.cambridge) {
+      row["Maths em outubro"] = choice.cambridge.faz_maths_outubro ? "Sim" : "Não";
+      row["Psychology"] = choice.cambridge.psychology ? "Sim" : "Não";
+      row["Economics"] = choice.cambridge.economics ? "Sim" : "Não";
+      row["Disciplina adicional"] = choice.cambridge.disciplina_extra || "";
+      row["Disciplinas finais"] = getCambridgeSubjectsForExport(choice.cambridge).join(" | ");
+      return row;
+    }
+
+    for (let priority = 1; priority <= 3; priority += 1) {
+      const subjects = choice?.prioridades?.find((item) => item.priority === priority)?.subjects || [];
+      row[`Prioridade ${priority} - Disciplina 1`] = subjects[0] || "";
+      row[`Prioridade ${priority} - Disciplina 2`] = subjects[1] || "";
+    }
+
+    return row;
+  });
+
+  const headers = Array.from(rows.reduce((set, row) => {
+    Object.keys(row).forEach((key) => set.add(key));
+    return set;
+  }, new Set()));
+  const emptyMessage = rows.length === 0
+    ? "<tr><td>Sem alunos para os filtros selecionados.</td></tr>"
+    : "";
+  const bodyRows = rows.map((row) => `
+    <tr>${headers.map((header) => `<td>${escapeHtml(row[header] ?? "")}</td>`).join("")}</tr>
+  `).join("");
+
+  return `<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; }
+          th { background: #eaf1f3; font-weight: 700; }
+          th, td { border: 1px solid #b8c8cf; padding: 6px 8px; vertical-align: top; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
+          </thead>
+          <tbody>${emptyMessage || bodyRows}</tbody>
+        </table>
+      </body>
+    </html>`;
 }
 
 function buildTenthGradeChoicesCsv(choices) {
