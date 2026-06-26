@@ -888,19 +888,21 @@ downloadExcelButton.addEventListener("click", () => {
   URL.revokeObjectURL(link.href);
 });
 
-clearResultsButton.addEventListener("click", async () => {
-  const confirmed = window.confirm("Queres limpar todos os resultados guardados na base de dados?");
+if (clearResultsButton) {
+  clearResultsButton.addEventListener("click", async () => {
+    const confirmed = window.confirm("Queres limpar todos os resultados guardados na base de dados?");
 
-  if (confirmed) {
-    try {
-      await choiceRepository.clear();
-      await updateCsvOutput();
-      await updateAdminDashboard();
-    } catch (error) {
-      csvOutput.value = error.message;
+    if (confirmed) {
+      try {
+        await choiceRepository.clear();
+        await updateCsvOutput();
+        await updateAdminDashboard();
+      } catch (error) {
+        csvOutput.value = error.message;
+      }
     }
-  }
-});
+  });
+}
 
 async function loadSignedInStudent(options = {}) {
   const { preferEditor = false } = options;
