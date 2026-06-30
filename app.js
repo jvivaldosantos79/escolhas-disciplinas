@@ -258,6 +258,7 @@ let adminChoicesCache = [];
 let adminStudentStatusesCache = new Map();
 let lastStudentView = "home";
 let activeProcessesCache = [];
+let adminProcessMessage = "";
 let adminEmulation = {
   active: false,
   previousProcessId: null
@@ -587,13 +588,19 @@ const processRepository = {
       throw new Error("A configuração de processos requer ligação ao Supabase.");
     }
 
-    const { error } = await client
+    const { data, error } = await client
       .from("processos_escolha")
       .update({ ativo: active })
-      .eq("id", processId);
+      .eq("id", processId)
+      .select("id,ativo")
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Não foi possível atualizar o processo: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error("Não foi possível atualizar o processo. Confirma as permissões da tabela processos_escolha no Supabase.");
     }
   }
 };
@@ -2766,9 +2773,10 @@ function renderAdminProcessesList() {
 
   const wrapper = document.createElement("div");
   const message = document.createElement("p");
-  message.className = "message hidden";
+  message.className = adminProcessMessage ? "message success" : "message hidden";
   message.setAttribute("role", "status");
   message.setAttribute("aria-live", "polite");
+  message.textContent = adminProcessMessage;
 
   const table = document.createElement("table");
   table.className = "results-table";
@@ -2817,17 +2825,18 @@ async function updateProcessActiveState(processId, active, button, message) {
   const originalText = button.textContent;
   button.disabled = true;
   button.textContent = "A guardar...";
+  adminProcessMessage = "";
   message.className = "message";
   message.textContent = "A atualizar processo...";
 
   try {
     await processRepository.updateActive(processId, active);
     await initActiveProcess();
-    message.className = "message success";
-    message.textContent = active ? "Processo aberto aos alunos." : "Processo fechado aos alunos.";
+    adminProcessMessage = active ? "Processo aberto aos alunos." : "Processo fechado aos alunos.";
     renderAdminProcessesList();
     await updateAdminDashboard();
   } catch (error) {
+    adminProcessMessage = "";
     message.className = "message warning";
     message.textContent = error.message;
   } finally {
