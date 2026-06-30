@@ -588,19 +588,18 @@ const processRepository = {
       throw new Error("A configuração de processos requer ligação ao Supabase.");
     }
 
-    const { data, error } = await client
-      .from("processos_escolha")
-      .update({ ativo: active })
-      .eq("id", processId)
-      .select("id,ativo")
-      .maybeSingle();
+    const { data, error } = await client.rpc("atualizar_estado_processo", {
+      p_admin_email: getSignedInEmail(),
+      p_process_id: processId,
+      p_active: active
+    });
 
     if (error) {
       throw new Error(`Não foi possível atualizar o processo: ${error.message}`);
     }
 
-    if (!data) {
-      throw new Error("Não foi possível atualizar o processo. Confirma as permissões da tabela processos_escolha no Supabase.");
+    if (!data?.success) {
+      throw new Error(data?.message || "Não foi possível atualizar o processo. Confirma a função atualizar_estado_processo no Supabase.");
     }
   }
 };
